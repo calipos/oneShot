@@ -34,6 +34,12 @@
     <Filter Include="头文件\cameraLibs">
       <UniqueIdentifier>{88cff0a2-3b1c-4ba8-896f-e40d1f9b4e03}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\dataExplorer">
+      <UniqueIdentifier>{9c2a097f-a6d1-4e27-91f7-da2c78a0bd30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\dataExplorer">
+      <UniqueIdentifier>{74a1e025-0714-499c-8cb2-4d25b78e8975}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logg.h">
@@ -54,6 +60,12 @@
     <ClInclude Include="camera.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="dataExplorer.h">
+      <Filter>头文件\dataExplorer</Filter>
+    </ClInclude>
+    <ClInclude Include="stringOp.h">
+      <Filter>头文件\utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">
@@ -61,6 +73,9 @@
     </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="dataExplorer.cpp">
+      <Filter>源文件\dataExplorer</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

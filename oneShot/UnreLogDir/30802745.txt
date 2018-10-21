@@ -1,0 +1,4 @@
+INFO:1540137260[e:\repo\oneshot\oneshot\main.cpp : 15]parse json start
+INFO:1540137260[e:\repo\oneshot\oneshot\main.cpp : 18]100
+INFO:1540137260[e:\repo\oneshot\oneshot\main.cpp : 19]6
+INFO:1540137260[e:\repo\oneshot\oneshot\main.cpp : 20]parse json end

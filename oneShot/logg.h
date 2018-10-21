@@ -31,9 +31,9 @@ public:
 	~mkLogDir() {};
 	int mkUnreLogDir()
 	{
-		if (!UNREFile::FolderExist(LOGDIRPATH))
+		if (!unre::FileOP::FolderExist(LOGDIRPATH))
 		{
-			UNREFile::MkDir(LOGDIRPATH);
+			unre::FileOP::MkDir(LOGDIRPATH);
 		}
 		return 0;
 	}

@@ -104,6 +104,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(solutionDir)oneShot\3rdPart;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -139,6 +140,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(solutionDir)oneShot\3rdPart;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -149,13 +151,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="dataExplorer.h" />
     <ClInclude Include="iofile.h" />
     <ClInclude Include="logg.h" />
     <ClInclude Include="realSense.h" />
     <ClInclude Include="ringBuffer.h" />
     <ClInclude Include="sensor.h" />
+    <ClInclude Include="stringOp.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dataExplorer.cpp" />
     <ClCompile Include="iofile.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
