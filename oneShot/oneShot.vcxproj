@@ -160,6 +160,7 @@
     <ClInclude Include="ringBuffer.h" />
     <ClInclude Include="sensor.h" />
     <ClInclude Include="stringOp.h" />
+    <ClInclude Include="threadPool.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dataExplorer.cpp" />

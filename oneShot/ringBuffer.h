@@ -26,6 +26,7 @@ public:
 
 namespace unre
 {
+	////FrameRingBuffer(const int height_, const int width_, const int channels_)
 	template < typename T >
 	class FrameRingBuffer
 	{
@@ -68,6 +69,7 @@ namespace unre
 		unsigned tail;            // also the writeIndex
 	};
 
+	
 	template < typename T >
 	FrameRingBuffer< T >::FrameRingBuffer(const int height_, const int width_, const int channels_) :
 		CAPACITY(MAX_QUEUE_SIZE), height(height_), width(width_), channels(channels_), cnt(0), head(0), tail(0)

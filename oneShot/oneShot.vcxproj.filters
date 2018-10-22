@@ -28,9 +28,6 @@
     <Filter Include="源文件\utils\ioFile">
       <UniqueIdentifier>{57feab4e-2394-45fe-93a0-10217f2b18b1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\utils\memory">
-      <UniqueIdentifier>{c193dcaa-f3ba-4598-91a9-12b9a37ea116}</UniqueIdentifier>
-    </Filter>
     <Filter Include="头文件\cameraLibs">
       <UniqueIdentifier>{88cff0a2-3b1c-4ba8-896f-e40d1f9b4e03}</UniqueIdentifier>
     </Filter>
@@ -40,6 +37,9 @@
     <Filter Include="源文件\dataExplorer">
       <UniqueIdentifier>{74a1e025-0714-499c-8cb2-4d25b78e8975}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\utils\arch">
+      <UniqueIdentifier>{f2f005db-aa8b-4c6d-b59a-5a751cc734a5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logg.h">
@@ -47,9 +47,6 @@
     </ClInclude>
     <ClInclude Include="iofile.h">
       <Filter>头文件\utils\ioFile</Filter>
-    </ClInclude>
-    <ClInclude Include="ringBuffer.h">
-      <Filter>头文件\utils\memory</Filter>
     </ClInclude>
     <ClInclude Include="sensor.h">
       <Filter>头文件</Filter>
@@ -65,6 +62,12 @@
     </ClInclude>
     <ClInclude Include="stringOp.h">
       <Filter>头文件\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ringBuffer.h">
+      <Filter>头文件\utils\arch</Filter>
+    </ClInclude>
+    <ClInclude Include="threadPool.h">
+      <Filter>头文件\utils\arch</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
