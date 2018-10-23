@@ -4,6 +4,7 @@
 #include<sstream>
 #include<string>
 #include<fstream>
+#include<assert.h>
 #include<time.h>
 #include "iofile.h"
 static std::string LOGLEVELS[] = { "INFO", "WARNING", "ERROR", "FATAL", "STACKTRACE" };
@@ -39,7 +40,7 @@ public:
 	}
 };
 
-mkLogDir ins_mkdir;
+static mkLogDir ins_mkdir;
 
 
 namespace LOGG
@@ -84,6 +85,7 @@ namespace LOGG
 			}
 			if (curLogLevel >= 3)
 			{
+				assert(false);
 				system("pause");
 			}
 			fout.close();

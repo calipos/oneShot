@@ -40,6 +40,9 @@
     <Filter Include="头文件\utils\arch">
       <UniqueIdentifier>{f2f005db-aa8b-4c6d-b59a-5a751cc734a5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\TEST">
+      <UniqueIdentifier>{4821fcc7-6abe-4ac6-a687-4032a472d058}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logg.h">
@@ -69,6 +72,9 @@
     <ClInclude Include="threadPool.h">
       <Filter>头文件\utils\arch</Filter>
     </ClInclude>
+    <ClInclude Include="JsonExplorer.h">
+      <Filter>头文件\utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">
@@ -79,6 +85,18 @@
     </ClCompile>
     <ClCompile Include="dataExplorer.cpp">
       <Filter>源文件\dataExplorer</Filter>
+    </ClCompile>
+    <ClCompile Include="TEST_buffer_thread.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
+    <ClCompile Include="TEST_json_write_read.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonExplorer.cpp">
+      <Filter>源文件\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="TEST_jsonExplorer.cpp">
+      <Filter>源文件\TEST</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

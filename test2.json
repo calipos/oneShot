@@ -1,0 +1,28 @@
+[{
+	"friendName": "realsenseD415",
+	"serialNumber": "751412060359",
+	"sensorType": "rgb",
+	"height": 1280,
+	"width": 1920,
+	"channels": 3,
+	"Dtype": "uchar",
+	"extraConfigPath": ""
+}, {
+	"friendName": "realsenseD415",
+	"serialNumber": "751412060359",
+	"sensorType": "depth",
+	"height": 720,
+	"width": 1280,
+	"channels": 1,
+	"Dtype": "ushort",
+	"extraConfigPath": ""
+}, {
+	"friendName": "realsenseD415",
+	"serialNumber": "751412060359",
+	"sensorType": "infred",
+	"height": 720,
+	"width": 1280,
+	"channels": 1,
+	"Dtype": "ushort",
+	"extraConfigPath": ""
+}]
