@@ -26,6 +26,7 @@ public:
 
 namespace unre
 {
+
 	////FrameRingBuffer(const int height_, const int width_, const int channels_)
 	template < typename T >
 	class FrameRingBuffer

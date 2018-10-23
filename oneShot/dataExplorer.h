@@ -3,28 +3,21 @@
 
 #include<vector>
 #include"ringBuffer.h"
-
+#include"JsonExplorer.h"
 namespace unre
 {
-	template<typename Dtype>
 	class DataExplorer
 	{
 	public:
 		DataExplorer() = delete;
 		DataExplorer(DataExplorer&de) = delete;
-		DataExplorer(int streamNum = 6)
-		{
-			bufferVec_ = new std::vector<FrameRingBuffer<Dtype>*>();
-			for (size_t i = 0; i < streamNum; i++)
-			{
-				bufferVec_->emplace_back();
-			}
-
-		}
+		DataExplorer(DataExplorer&&de) = delete;
+		DataExplorer(int streamNum = 9);
 		~DataExplorer() {};
 
 	private:
-		std::vector<FrameRingBuffer<Dtype>*> *bufferVec_;
+		std::vector<void*> bufferVecP;
+		JsonExplorer je;
 
 	};
 }
