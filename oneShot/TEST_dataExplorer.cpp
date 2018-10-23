@@ -1,3 +1,4 @@
+#ifdef COMPILE_TEST
 #include <atomic>
 #include <chrono>
 #include"logg.h"
@@ -5,6 +6,7 @@
 #include"threadPool.h"
 #include"dataExplorer.h"
 #include "stringOp.h"
+#include"JsonExplorer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
@@ -12,11 +14,11 @@
 #include"opencv2/opencv.hpp"
 
 
-
-extern int TEST_dataExplorer();
-int main()
+int TEST_dataExplorer()
 {
-	TEST_dataExplorer();
-	system("pause");
+	unre::DataExplorer de(9);
+
+
 	return 0;
 }
+#endif // COMPILE_TEST

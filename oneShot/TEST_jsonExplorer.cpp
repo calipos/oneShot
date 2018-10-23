@@ -16,7 +16,7 @@
 
 int TEST_jsonExplorer()
 {
-	JsonExplorer je("../../test2.json");
+	unre::JsonExplorer je("../../test2.json");
 	system("pause");
 	return 0;
 }

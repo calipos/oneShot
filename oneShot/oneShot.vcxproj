@@ -168,6 +168,7 @@
     <ClCompile Include="TEST_buffer_thread.cpp" />
     <ClCompile Include="dataExplorer.cpp" />
     <ClCompile Include="iofile.cpp" />
+    <ClCompile Include="TEST_dataExplorer.cpp" />
     <ClCompile Include="TEST_jsonExplorer.cpp" />
     <ClCompile Include="TEST_json_write_read.cpp" />
     <ClCompile Include="main.cpp" />

@@ -5,7 +5,10 @@
 
 namespace unre
 {
+	JsonExplorer::JsonExplorer()
+	{
 
+	}
 	JsonExplorer::~JsonExplorer()
 	{
 
@@ -60,8 +63,7 @@ namespace unre
 			std::string sn = getValue<std::string>(docRoot[configIdx], "serialNumber");
 			std::string sensorType = getValue<std::string>(docRoot[configIdx], "sensorType");
 			std::string extraFilePath = getValue<std::string>(docRoot[configIdx], "extraConfigPath");
-
-			extraConfigFilPath.emplace_back(std::move(extraFilePath));
+			
 			auto it = std::find_if(sensorAssignmentInfo.begin(), sensorAssignmentInfo.end(), [&](auto&item)
 			{
 				std::string&this_friendname_and_sn = std::get<0>(item);
@@ -79,6 +81,8 @@ namespace unre
 					else
 					{
 						this_sensors_map[sensorType] = std::make_tuple(configIdx, height, width, channels, dtype);
+						CHECK(extraConfigFilPath[extraConfigFilPath.size()-1].compare(extraFilePath)==0)
+							<<"she sensors sharing identity sn must be specified one configuration";
 					}
 					return true;
 				}
@@ -90,11 +94,27 @@ namespace unre
 						std::unordered_map<std::string, std::tuple<int, int, int, int, std::string>>
 				{ { sensorType, std::make_tuple(configIdx, height, width, channels, dtype) } })
 				);
+				extraConfigFilPath.emplace_back(std::move(extraFilePath));
 			}
 		}
-		CHECK(extraConfigFilPath.size() == sensorCnt) << "extraConfigFiles not match sensors :(" << extraConfigFilPath.size() << " vs. " << sensorCnt << ")";
+		CHECK(extraConfigFilPath.size() == sensorAssignmentInfo.size()) << "extraConfigFiles not match sensors :(" << extraConfigFilPath.size() << " vs. " << sensorCnt << ")";
 	}
 
+	JsonExplorer::JsonExplorer(const JsonExplorer&other)
+	{
+		sensorCnt= other.sensorCnt;
+		sensorAssignmentInfo = other.sensorAssignmentInfo;
+		extraConfigFilPath = other.extraConfigFilPath;
+	}
+
+
+	JsonExplorer & JsonExplorer::operator=(const JsonExplorer& other)
+	{
+		sensorCnt = other.sensorCnt;
+		sensorAssignmentInfo = other.sensorAssignmentInfo;
+		extraConfigFilPath = other.extraConfigFilPath;
+		return *this;
+	}
 
 	const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string>> > >&
 		JsonExplorer::getSensorAssignmentInfo()

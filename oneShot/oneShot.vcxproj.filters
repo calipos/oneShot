@@ -98,5 +98,8 @@
     <ClCompile Include="TEST_jsonExplorer.cpp">
       <Filter>源文件\TEST</Filter>
     </ClCompile>
+    <ClCompile Include="TEST_dataExplorer.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

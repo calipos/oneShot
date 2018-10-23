@@ -12,7 +12,7 @@ namespace unre
 		DataExplorer() = delete;
 		DataExplorer(DataExplorer&de) = delete;
 		DataExplorer(DataExplorer&&de) = delete;
-		DataExplorer(int streamNum = 9);
+		explicit DataExplorer(int streamNum = 9);
 		~DataExplorer() {};
 
 	private:

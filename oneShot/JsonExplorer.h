@@ -15,8 +15,10 @@ namespace unre
 	class JsonExplorer
 	{
 	public:
-		JsonExplorer() = delete;
+		JsonExplorer();
 		explicit JsonExplorer(const char*jsonFilePath);
+		explicit JsonExplorer(const JsonExplorer&other);
+		JsonExplorer & operator=(const JsonExplorer& other);
 		~JsonExplorer();
 		template<typename Dtype>
 		Dtype getValue(const rapidjson::Value &node, const char*key);
