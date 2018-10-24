@@ -154,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="dataExplorer.h" />
+    <ClInclude Include="errorCode.h" />
     <ClInclude Include="iofile.h" />
     <ClInclude Include="JsonExplorer.h" />
     <ClInclude Include="logg.h" />
@@ -164,6 +165,7 @@
     <ClInclude Include="threadPool.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="deviceExplorer.cpp" />
     <ClCompile Include="JsonExplorer.cpp" />
     <ClCompile Include="TEST_buffer_thread.cpp" />
     <ClCompile Include="dataExplorer.cpp" />

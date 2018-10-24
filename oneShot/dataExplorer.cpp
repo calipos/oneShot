@@ -1,5 +1,5 @@
 #include<algorithm>
-
+#include"stringOp.h"
 #include"logg.h"
 #include"iofile.h"
 #include"dataExplorer.h"
@@ -22,7 +22,25 @@ namespace unre
 		}
 		int exactStreamCnt = 0;
 		auto &SensorsInfo = je.getSensorAssignmentInfo();
+		std::vector<std::string> usedDeviceType;
+		std::find_if( SensorsInfo.begin(), SensorsInfo.end(), [&usedDeviceType](auto&item)
+		{
+			std::vector<std::string> segs = StringOP::splitString(std::get<0>(item),",");
+			CHECK(segs.size()==2)<<"the config err! must be seperated by a comma!";
+			if (usedDeviceType.end() == std::find(usedDeviceType.begin(), usedDeviceType.end(),segs[0]))
+			{
+				usedDeviceType.emplace_back(segs[0]);
+				LOG(INFO) << segs[0] << " HAS BEEN SET.";
+			}
+			return false;
+		});
 		LOG(INFO) << SensorsInfo.size() << " devices are required.";
+
+		if (loadDevices2Stream())
+		{
+
+		}
+
 		for (auto it1 = SensorsInfo.begin(); it1 != SensorsInfo.end(); it1++)
 			{
 				auto&this_device_sn = std::get<0>(*it1);

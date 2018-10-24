@@ -27,7 +27,7 @@ namespace unre
 				return std::move(stringFromStream);
 			}
 		}
-		static std::vector<std::string> splitString(const std::string& src, const std::string &symbols, bool repeat)
+		static std::vector<std::string> splitString(const std::string& src, const std::string &symbols, bool repeat=false)
 		{
 			std::vector<std::string> result;
 			int startIdx = 0;
@@ -66,7 +66,7 @@ namespace unre
 
 				}
 			}
-			return result;
+			return std::move(result);
 		}
 	};
 

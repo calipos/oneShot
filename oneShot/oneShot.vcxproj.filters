@@ -31,12 +31,6 @@
     <Filter Include="头文件\cameraLibs">
       <UniqueIdentifier>{88cff0a2-3b1c-4ba8-896f-e40d1f9b4e03}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\dataExplorer">
-      <UniqueIdentifier>{9c2a097f-a6d1-4e27-91f7-da2c78a0bd30}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="源文件\dataExplorer">
-      <UniqueIdentifier>{74a1e025-0714-499c-8cb2-4d25b78e8975}</UniqueIdentifier>
-    </Filter>
     <Filter Include="头文件\utils\arch">
       <UniqueIdentifier>{f2f005db-aa8b-4c6d-b59a-5a751cc734a5}</UniqueIdentifier>
     </Filter>
@@ -60,9 +54,6 @@
     <ClInclude Include="camera.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="dataExplorer.h">
-      <Filter>头文件\dataExplorer</Filter>
-    </ClInclude>
     <ClInclude Include="stringOp.h">
       <Filter>头文件\utils</Filter>
     </ClInclude>
@@ -72,8 +63,14 @@
     <ClInclude Include="threadPool.h">
       <Filter>头文件\utils\arch</Filter>
     </ClInclude>
+    <ClInclude Include="dataExplorer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="JsonExplorer.h">
-      <Filter>头文件\utils</Filter>
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="errorCode.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -83,17 +80,11 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="dataExplorer.cpp">
-      <Filter>源文件\dataExplorer</Filter>
-    </ClCompile>
     <ClCompile Include="TEST_buffer_thread.cpp">
       <Filter>源文件\TEST</Filter>
     </ClCompile>
     <ClCompile Include="TEST_json_write_read.cpp">
       <Filter>源文件\TEST</Filter>
-    </ClCompile>
-    <ClCompile Include="JsonExplorer.cpp">
-      <Filter>源文件\utils</Filter>
     </ClCompile>
     <ClCompile Include="TEST_jsonExplorer.cpp">
       <Filter>源文件\TEST</Filter>
@@ -103,6 +94,15 @@
     </ClCompile>
     <ClCompile Include="TEST_subThread_pause_continue.cpp">
       <Filter>源文件\TEST</Filter>
+    </ClCompile>
+    <ClCompile Include="dataExplorer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonExplorer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="deviceExplorer.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

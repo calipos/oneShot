@@ -29,7 +29,7 @@ void do_print_id(int id)
 			}
 		}
 		{
-			std::unique_lock <std::mutex> lck(termin_mtx);
+			std::lock_guard <std::mutex> lck(termin_mtx);
 			if (doTerminate)
 			{
 				cout << "Exit thread" << endl;
