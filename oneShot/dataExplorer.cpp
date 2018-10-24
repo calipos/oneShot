@@ -35,6 +35,7 @@ namespace unre
 						int width = std::get<2>(map_it->second);
 						int channels = std::get<3>(map_it->second);
 						std::string dataType = std::get<4>(map_it->second);
+						auto intr = std::get<5>(map_it->second);
 				}
 			}
 		LOG(INFO) << " - " << exactStreamCnt;

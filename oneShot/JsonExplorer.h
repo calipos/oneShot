@@ -21,23 +21,23 @@ namespace unre
 		JsonExplorer & operator=(const JsonExplorer& other);
 		~JsonExplorer();
 		template<typename Dtype>
-		Dtype getValue(const rapidjson::Value &node, const char*key);
-		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string>> > >& getSensorAssignmentInfo();
+		inline Dtype getValue(const rapidjson::Value &node, const char*key);
+		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& getSensorAssignmentInfo();
 		const std::vector<std::string> & getExtraConfigFilPath();
 	private:
 		rapidjson::Document docRoot;
 		int sensorCnt;
 
-		////|    ["rgb" : <0,h,w,c,dtype>] |
-		////|sn ["dep" : <1,h,w,c,dtype>] |
-		////|    ["inf"   : <2,h,w,c,dtype>] |
+		////|    ["rgb" : <0,h,w,c,dtype,intrMap>] |
+		////|sn ["dep" : <1,h,w,c,dtype,intrMap>] |
+		////|    ["inf"   : <2,h,w,c,dtype,intrMap>] |
 		////|=====================|
-		////|sn ["rgb" : <3,h,w,c>,dtype] |
+		////|sn ["rgb" : <3,h,w,c,dtype,intrMap>] |
 		////|=====================|
-		////|sn ["dep" : <4,h,w,c,dtype>] |
-		////|     ["inf" : <5,h,w,c,dtype>]  |
+		////|sn ["dep" : <4,h,w,c,dtype,intrMap>] |
+		////|     ["inf" : <5,h,w,c,dtype,intrMap>]  |
 		////|           ...               |
-		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string>> > > sensorAssignmentInfo;
+		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorAssignmentInfo;
 		std::vector<std::string> extraConfigFilPath;
 	};
 }

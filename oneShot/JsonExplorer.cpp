@@ -28,6 +28,32 @@ namespace unre
 		}
 	}
 	template<>
+	float JsonExplorer::getValue<float>(const rapidjson::Value&node, const char*key)
+	{
+		if (node.HasMember(key))
+		{
+			return node[key].GetFloat();
+		}
+		else
+		{
+			LOG(FATAL) << "the json node:" << &node << ", has no member " << key << "!!!";
+			return -1;
+		}
+	}
+	template<>
+	double JsonExplorer::getValue<double>(const rapidjson::Value&node, const char*key)
+	{
+		if (node.HasMember(key))
+		{
+			return node[key].GetDouble();
+		}
+		else
+		{
+			LOG(FATAL) << "the json node:" << &node << ", has no member " << key << "!!!";
+			return -1;
+		}
+	}
+	template<>
 	std::string JsonExplorer::getValue<std::string>(const rapidjson::Value&node, const char*key)
 	{
 		if (node.HasMember(key))
@@ -40,6 +66,7 @@ namespace unre
 			return "";
 		}
 	}
+	
 
 	JsonExplorer::JsonExplorer(const char*jsonFilePath)
 	{
@@ -53,7 +80,7 @@ namespace unre
 		{
 			LOG(FATAL) << "the json file err, just 1 sensor?!!!";
 		}
-		for (size_t configIdx = 0; configIdx < sensorCnt; configIdx++)
+		for (int configIdx = 0; configIdx < sensorCnt; configIdx++)
 		{
 			int height = getValue<int>(docRoot[configIdx], "height");
 			int width = getValue<int>(docRoot[configIdx], "width");
@@ -62,6 +89,10 @@ namespace unre
 			std::string friendName = getValue<std::string>(docRoot[configIdx], "friendName");
 			std::string sn = getValue<std::string>(docRoot[configIdx], "serialNumber");
 			std::string sensorType = getValue<std::string>(docRoot[configIdx], "sensorType");
+			double cx = getValue<double>(docRoot[configIdx], "cx");
+			double cy = getValue<double>(docRoot[configIdx], "cy");
+			double fx = getValue<double>(docRoot[configIdx], "fx");
+			double fy = getValue<double>(docRoot[configIdx], "fy");
 			std::string extraFilePath = getValue<std::string>(docRoot[configIdx], "extraConfigPath");
 			
 			auto it = std::find_if(sensorAssignmentInfo.begin(), sensorAssignmentInfo.end(), [&](auto&item)
@@ -80,7 +111,7 @@ namespace unre
 					}
 					else
 					{
-						this_sensors_map[sensorType] = std::make_tuple(configIdx, height, width, channels, dtype);
+						this_sensors_map[sensorType] = std::make_tuple(configIdx, height, width, channels, dtype, std::unordered_map<std::string, double>{ {"cx", cx}, { "cy",cy }, { "fx",fx }, { "fy",fy } });
 						CHECK(extraConfigFilPath[extraConfigFilPath.size()-1].compare(extraFilePath)==0)
 							<<"she sensors sharing identity sn must be specified one configuration";
 					}
@@ -89,10 +120,27 @@ namespace unre
 			});
 			if (it == sensorAssignmentInfo.end())
 			{
-				sensorAssignmentInfo.emplace_back(
-					std::make_tuple(friendName + "," + sn,
-						std::unordered_map<std::string, std::tuple<int, int, int, int, std::string>>
-				{ { sensorType, std::make_tuple(configIdx, height, width, channels, dtype) } })
+				sensorAssignmentInfo.emplace_back
+				(
+					std::make_tuple
+					(
+						friendName + "," + sn,
+						std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > >
+						{ 
+							{ 
+								sensorType, 
+								std::make_tuple
+								(
+									configIdx, 
+									height, 
+									width, 
+									channels, 
+									dtype, 
+									std::unordered_map<std::string, double>{ {"cx",cx},{ "cy",cy },{ "fx",fx },{ "fy",fy } }
+								) 
+							} 
+						}
+					)
 				);
 				extraConfigFilPath.emplace_back(std::move(extraFilePath));
 			}
@@ -116,7 +164,7 @@ namespace unre
 		return *this;
 	}
 
-	const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string>> > >&
+	const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >&
 		JsonExplorer::getSensorAssignmentInfo()
 	{
 		return sensorAssignmentInfo;
