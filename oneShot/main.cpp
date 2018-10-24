@@ -13,10 +13,10 @@
 
 
 
-extern int TEST_dataExplorer();
+extern int TEST_thread_pauseContinue();
 int main()
 {
-	TEST_dataExplorer();
+	TEST_thread_pauseContinue();
 	system("pause");
 	return 0;
 }
