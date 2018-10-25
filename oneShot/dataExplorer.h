@@ -3,7 +3,8 @@
 
 #include<vector>
 #include"ringBuffer.h"
-#include"JsonExplorer.h"
+#include"jsonExplorer.h"
+#include"deviceExplorer.h"
 namespace unre
 {
 	class DataExplorer
@@ -18,7 +19,7 @@ namespace unre
 	private:
 		std::vector<void*> bufferVecP;
 		JsonExplorer je;
-
+		DeviceExplorer* dev_e;
 	};
 }
 

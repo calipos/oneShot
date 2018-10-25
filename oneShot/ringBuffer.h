@@ -3,6 +3,8 @@
 #include < atomic >
 #include < mutex >
 
+
+
 class spinlock
 {
 	std::atomic_flag flag = ATOMIC_FLAG_INIT;
@@ -26,8 +28,6 @@ public:
 
 namespace unre
 {
-
-	////FrameRingBuffer(const int height_, const int width_, const int channels_)
 	template < typename T >
 	class FrameRingBuffer
 	{
@@ -36,6 +36,10 @@ namespace unre
 		int width;
 		int channels;
 		int frameEleCnt;
+		std::string sensorType;
+		std::string dType;
+		double cx{ 0. }, cy{ 0. }, fx{ 0. }, fy{ 0. };
+		bool busy{ false };
 		//FrameRingBuffer() = delete;;
 		explicit FrameRingBuffer(const int height_, const int width_, const int channels_);
 

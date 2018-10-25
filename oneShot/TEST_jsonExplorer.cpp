@@ -6,7 +6,7 @@
 #include"threadPool.h"
 #include"dataExplorer.h"
 #include "stringOp.h"
-#include"JsonExplorer.h"
+#include"jsonExplorer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"

@@ -3,6 +3,8 @@
 
 #include"sensor.h"
 
+
+
 struct RealSense:sensorBase<RealSense>
 {
 

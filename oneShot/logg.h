@@ -7,6 +7,7 @@
 #include<assert.h>
 #include<time.h>
 #include "iofile.h"
+#include "errorCode.h"
 static std::string LOGLEVELS[] = { "INFO", "WARNING", "ERROR", "FATAL", "STACKTRACE" };
 
 const int GLOG_INFO = 0;

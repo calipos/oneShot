@@ -1,5 +1,5 @@
 #include<algorithm>
-#include"JsonExplorer.h"
+#include"jsonExplorer.h"
 #include"stringOp.h"
 #include"logg.h"
 
@@ -112,7 +112,7 @@ namespace unre
 					else
 					{
 						this_sensors_map[sensorType] = std::make_tuple(configIdx, height, width, channels, dtype, std::unordered_map<std::string, double>{ {"cx", cx}, { "cy",cy }, { "fx",fx }, { "fy",fy } });
-						CHECK(extraConfigFilPath[extraConfigFilPath.size()-1].compare(extraFilePath)==0)
+						CHECK(std::get<1>(extraConfigFilPath[extraConfigFilPath.size()-1]).compare(extraFilePath)==0)
 							<<"she sensors sharing identity sn must be specified one configuration";
 					}
 					return true;
@@ -142,7 +142,7 @@ namespace unre
 						}
 					)
 				);
-				extraConfigFilPath.emplace_back(std::move(extraFilePath));
+				extraConfigFilPath.emplace_back(std::move(make_tuple(friendName + "," + sn,extraFilePath)));
 			}
 		}
 		CHECK(extraConfigFilPath.size() == sensorAssignmentInfo.size()) << "extraConfigFiles not match sensors :(" << extraConfigFilPath.size() << " vs. " << sensorCnt << ")";
@@ -170,7 +170,7 @@ namespace unre
 		return sensorAssignmentInfo;
 	}
 
-	const std::vector<std::string> & JsonExplorer::getExtraConfigFilPath()
+	const std::vector<std::tuple<std::string, std::string>> & JsonExplorer::getExtraConfigFilPath()
 	{
 		return extraConfigFilPath;
 	}

@@ -23,7 +23,7 @@ namespace unre
 		template<typename Dtype>
 		inline Dtype getValue(const rapidjson::Value &node, const char*key);
 		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& getSensorAssignmentInfo();
-		const std::vector<std::string> & getExtraConfigFilPath();
+		const std::vector<std::tuple<std::string,std::string>> & getExtraConfigFilPath();
 	private:
 		rapidjson::Document docRoot;
 		int sensorCnt;
@@ -38,7 +38,7 @@ namespace unre
 		////|     ["inf" : <5,h,w,c,dtype,intrMap>]  |
 		////|           ...               |
 		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorAssignmentInfo;
-		std::vector<std::string> extraConfigFilPath;
+		std::vector<std::tuple<std::string, std::string>> extraConfigFilPath;
 	};
 }
 #endif // !_JSON_EXPLORER_H_

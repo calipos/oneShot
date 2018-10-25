@@ -66,10 +66,13 @@
     <ClInclude Include="dataExplorer.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="JsonExplorer.h">
+    <ClInclude Include="errorCode.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="errorCode.h">
+    <ClInclude Include="deviceExplorer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="jsonExplorer.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

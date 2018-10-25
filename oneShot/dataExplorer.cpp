@@ -23,24 +23,25 @@ namespace unre
 		int exactStreamCnt = 0;
 		auto &SensorsInfo = je.getSensorAssignmentInfo();
 		std::vector<std::string> usedDeviceType;
-		std::find_if( SensorsInfo.begin(), SensorsInfo.end(), [&usedDeviceType](auto&item)
+		std::find_if( SensorsInfo.begin(), SensorsInfo.end(), [&usedDeviceType,&exactStreamCnt](auto&item)
 		{
-			std::vector<std::string> segs = StringOP::splitString(std::get<0>(item),",");
-			CHECK(segs.size()==2)<<"the config err! must be seperated by a comma!";
-			if (usedDeviceType.end() == std::find(usedDeviceType.begin(), usedDeviceType.end(),segs[0]))
+			const std::string &this_dev_type = std::get<0>(item);
+			if (usedDeviceType.end() == std::find(usedDeviceType.begin(), usedDeviceType.end(), this_dev_type))
 			{
-				usedDeviceType.emplace_back(segs[0]);
-				LOG(INFO) << segs[0] << " HAS BEEN SET.";
+				usedDeviceType.emplace_back(this_dev_type);
+				LOG(INFO) << this_dev_type << " HAS BEEN SET.";
 			}
+			exactStreamCnt += std::get<1>(item).size();
 			return false;
 		});
 		LOG(INFO) << SensorsInfo.size() << " devices are required.";
 
-		if (loadDevices2Stream())
-		{
 
-		}
-
+		dev_e = new DeviceExplorer(usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
+		dev_e->init();
+		dev_e->run();
+		bufferVecP.resize(exactStreamCnt);
+		dev_e->pushStream(bufferVecP);
 		for (auto it1 = SensorsInfo.begin(); it1 != SensorsInfo.end(); it1++)
 			{
 				auto&this_device_sn = std::get<0>(*it1);
