@@ -1,4 +1,5 @@
 #include<set>
+#include<thread>
 #include"deviceExplorer.h"
 #include"dataExplorer.h"
 #include"ringBuffer.h"
@@ -42,7 +43,7 @@ namespace unre
 		isDevicesRunning = true;
 	}
 
-	int DeviceExplorer::pushStream(std::vector<void*> &bufferVecP)
+	int DeviceExplorer::pushStream(std::vector<Buffer> &bufferVecP)
 	{
 #ifdef USE_REALSENSE
 		int ret = pushRsStream(bufferVecP);
@@ -198,8 +199,12 @@ namespace unre
 				rs2::pipeline_profile profile;
 				c.enable_device(serial_number);
 				c.enable_stream(RS2_STREAM_COLOR, rgb_w, rgb_h, RS2_FORMAT_RGB8, 30);
+				//c.enable_stream(RS2_STREAM_COLOR, 1280, 720, RS2_FORMAT_RGB8, 30);
 				c.enable_stream(RS2_STREAM_DEPTH, dep_w, dep_h, RS2_FORMAT_Z16, 30);
 				c.enable_stream(RS2_STREAM_INFRARED, 1, inf_w, inf_h, RS2_FORMAT_Y8, 30);
+
+				//profile = p.start(c);
+
 				rsMap[key_] = std::make_tuple(p,c, profile, streamTable);
 			}
 		}
@@ -268,7 +273,7 @@ namespace unre
 			}	
 		}
 	}
-	int DeviceExplorer::pushRsStream(std::vector<void*> &bufferVecP)
+	int DeviceExplorer::pushRsStream(std::vector<Buffer> &bufferVecP)
 	{
 		CHECK(bufferVecP.size()>0)<<"bufferVecP must be resize before!";
 		int rs_stream_cnt = 0;
@@ -284,7 +289,7 @@ namespace unre
 		{
 			rs2::pipeline&p = std::get<0>(rs.second);
 			auto&this_dev_info = std::get<3>(rs.second);
-			std::vector<int> bufferIdx(10,-1);//一个相机支持最多输出10个流，0位代表rgb，1位代表deo，2位代表inf
+			std::vector<int> bufferIdx(10,-1);//一个相机支持最多输出10个流，0位代表rgb，1位代表dep，2位代表inf
 			for (auto&sensorInfo : this_dev_info)
 			{
 				const std::string&sensorType = sensorInfo.first;
@@ -315,14 +320,16 @@ namespace unre
 					CHECK(false)<<"MATCH ERR";
 				}
 			
-				CHECK(bufferVecP[sensorIdx] == NULL)<<"there should be null";
-				if (dataType_.compare("uchar"))
+				CHECK(bufferVecP[sensorIdx].data == NULL)<<"there should be null";
+				if (dataType_.compare("uchar")==0)
 				{
-					bufferVecP[sensorIdx] = new FrameRingBuffer<unsigned char>(height_, width_, channels_);
+					bufferVecP[sensorIdx].data = new FrameRingBuffer<unsigned char>(height_, width_, channels_);
+					bufferVecP[sensorIdx].Dtype = "uchar";
 				}
-				else if (dataType_.compare("ushort"))
+				else if (dataType_.compare("ushort")==0)
 				{
-					bufferVecP[sensorIdx] = new FrameRingBuffer<unsigned char>(height_, width_, channels_);
+					bufferVecP[sensorIdx].data = new FrameRingBuffer<unsigned short>(height_, width_, channels_);
+					bufferVecP[sensorIdx].Dtype = "uchar";
 				}
 				else
 				{
@@ -348,17 +355,23 @@ namespace unre
 			
 			//TODO:not elegent
 			if (bufferIdx[0] >= 0&& bufferIdx[1] >= 0&&bufferIdx[2] >= 0)
-			{
-				rs_pushStream_3(p, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], this);
+			{				
+				threadSet.emplace_back(std::thread(&DeviceExplorer::rs_pushStream_3<unsigned char, unsigned short, unsigned char>, this,p, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, this));
+				
+				//rs_pushStream_3(p, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[2]], this);
 			}
 			else if (bufferIdx[0] < 0 && bufferIdx[1] >= 0 && bufferIdx[2] >= 0)
 			{
-				rs_pushStream_2(p, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], this, 1, 2);
+				threadSet.emplace_back(std::thread(&DeviceExplorer::rs_pushStream_2<unsigned short, unsigned char>, this, p, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, this,1,2));
+				//rs_pushStream_2(p, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], this, 1, 2);
 			}
 			else
 			{
 				CHECK(false) << "NOT SOPPORT TYPE";
 			}
+
+			>>auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data)->pop();
+
 
 		}
 
@@ -367,12 +380,4 @@ namespace unre
 		return 0;
 	}
 #endif
-}
-
-namespace unre
-{
-	int DataExplorer::loadDevices2Stream()
-	{
-		return 0;
-	}
 }

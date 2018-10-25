@@ -15,9 +15,9 @@ namespace unre
 		DataExplorer(DataExplorer&&de) = delete;
 		explicit DataExplorer(int streamNum = 9);
 		~DataExplorer() {};
-		int loadDevices2Stream();
+		int getBuffer();
 	private:
-		std::vector<void*> bufferVecP;
+		std::vector<Buffer> bufferVecP;
 		JsonExplorer je;
 		DeviceExplorer* dev_e;
 	};

@@ -4,6 +4,11 @@
 #include"iofile.h"
 #include"dataExplorer.h"
 
+#define OPENCV_SHOW
+#ifdef OPENCV_SHOW
+#include "opencv2/opencv.hpp"
+#endif
+
 namespace unre
 {
 	DataExplorer::DataExplorer(int streamNum)
@@ -41,23 +46,30 @@ namespace unre
 		dev_e->init();
 		dev_e->run();
 		bufferVecP.resize(exactStreamCnt);
-		dev_e->pushStream(bufferVecP);
-		for (auto it1 = SensorsInfo.begin(); it1 != SensorsInfo.end(); it1++)
+		dev_e->pushStream(bufferVecP);		
+	}
+	int DataExplorer::getBuffer()
+	{
+		LOG(INFO) << bufferVecP.size();
+		for (auto&bufferP : bufferVecP)
+		{
+			if (bufferP.data)
 			{
-				auto&this_device_sn = std::get<0>(*it1);
-				auto&this_map = std::get<1>(*it1);
-				for (auto map_it = this_map.begin(); map_it != this_map.end(); map_it++)
+				if (bufferP.Dtype=="uchar")
 				{
-						std::string sensorType = map_it->first;
-						int sensoridx = std::get<0>(map_it->second);
-						int height = std::get<1>(map_it->second);
-						int width = std::get<2>(map_it->second);
-						int channels = std::get<3>(map_it->second);
-						std::string dataType = std::get<4>(map_it->second);
-						auto intr = std::get<5>(map_it->second);
+					FrameRingBuffer<unsigned char>*ringBuffer = (FrameRingBuffer<unsigned char>*)bufferP.data;
+					unsigned char*frameData = ringBuffer->pop();
+					int height = ringBuffer->height;
+					int width = ringBuffer->width;
+					int channels = ringBuffer->channels;
+#ifdef OPENCV_SHOW
+					cv::Mat show1 = cv::Mat(height, width, channels == 1 ? CV_8UC1 : CV_8UC3);
+					memcpy(show1.data, frameData,height*width*channels*sizeof(unsigned char));
+#endif
 				}
-			}
-		LOG(INFO) << " - " << exactStreamCnt;
 
+			}
+		}
+		return 0;
 	}
 }

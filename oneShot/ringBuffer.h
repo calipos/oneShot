@@ -24,14 +24,19 @@ public:
 	}
 };
 
-#define MAX_QUEUE_SIZE (100)
+#define MAX_QUEUE_SIZE (2)
 
 namespace unre
 {
+	
+	
+
+
 	template < typename T >
 	class FrameRingBuffer
 	{
 	public:
+		typedef T Value_type;
 		int height;
 		int width;
 		int channels;
@@ -39,7 +44,7 @@ namespace unre
 		std::string sensorType;
 		std::string dType;
 		double cx{ 0. }, cy{ 0. }, fx{ 0. }, fy{ 0. };
-		bool busy{ false };
+		
 		//FrameRingBuffer() = delete;;
 		explicit FrameRingBuffer(const int height_, const int width_, const int channels_);
 
@@ -170,5 +175,33 @@ namespace unre
 		return cnt;
 	}
 
+
+	struct Buffer
+	{
+		void*data;
+		std::string Dtype;
+		Buffer()
+		{
+			data = NULL;
+			Dtype = "";
+		}
+		template<typename T>
+		Buffer(FrameRingBuffer<T>*buffer)
+		{
+			data = (void*)buffer;
+			if (std::string(typeid(T(0)).name()).compare("unsigned char") == 0)
+			{
+				Dtype = "unsigned char";
+			}
+			else if (std::string(typeid(T(0)).name()).compare("unsigned short") == 0)
+			{
+				Dtype = "unsigned short";
+			}
+			else
+			{
+				LOG(FATAL) << "not support type : " << typeid(T(0)).name();
+			}
+		}
+	};
 }
 #endif

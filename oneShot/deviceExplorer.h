@@ -5,6 +5,7 @@
 #include<unordered_map>
 #include<string>
 #include<mutex>
+#include<condition_variable>
 
 #include "logg.h"
 #include "ringBuffer.h"
@@ -28,7 +29,7 @@ namespace unre
 			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath);
 		void init();
 		void run();
-		int pushStream(std::vector<void*> &bufferVecP);
+		int pushStream(std::vector<Buffer> &bufferVecP);
 		const std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>getRunTime_intr();
 #ifdef USE_REALSENSE
 	public:
@@ -38,7 +39,7 @@ namespace unre
 			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath);
 		void initRS();
 		void runRS();
-		int pushRsStream(std::vector<void*> &bufferVecP);
+		int pushRsStream(std::vector<Buffer> &bufferVecP);
 
 		template<typename T1, typename T2>
 		void rs_pushStream_2(rs2::pipeline&p, FrameRingBuffer<T1>*buffer1, FrameRingBuffer<T2>*buffer2, DeviceExplorer*current, int channel1, int channel2)
@@ -65,7 +66,7 @@ namespace unre
 				rs2::frameset depth_and_color_frameset = p.wait_for_frames();
 				//auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
 				auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
-				auto if_pt = (unsigned short*)depth_and_color_frameset.get_infrared_frame().get_data();
+				auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
 				buffer1->push(df_pt);
 				buffer2->push(if_pt);
 			}
@@ -94,7 +95,8 @@ namespace unre
 				rs2::frameset depth_and_color_frameset = p.wait_for_frames();
 				auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
 				auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
-				auto if_pt = (unsigned short*)depth_and_color_frameset.get_infrared_frame().get_data();
+				auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+				
 				buffer0->push(cf_pt);
 				buffer1->push(df_pt);
 				buffer2->push(if_pt);
@@ -120,6 +122,8 @@ namespace unre
 		std::condition_variable cv_pause; // doPause的条件变量.
 		std::mutex termin_mtx; //g_bThreadRun的锁
 		std::atomic<bool> doTerminate = false;
+
+		std::vector<std::thread> threadSet;
 	};
 
 }

@@ -17,7 +17,7 @@
 int TEST_dataExplorer()
 {
 	unre::DataExplorer de(9);
-
+	de.getBuffer();
 
 	return 0;
 }
