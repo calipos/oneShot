@@ -3,7 +3,9 @@
 #include"deviceExplorer.h"
 #include"dataExplorer.h"
 #include"ringBuffer.h"
-
+#ifdef OPENCV_SHOW
+#include "opencv2/opencv.hpp"
+#endif
 #ifdef USE_REALSENSE
 #include "librealsense2/rs.h"
 #include <librealsense2/rs_advanced_mode.hpp>
@@ -47,6 +49,8 @@ namespace unre
 	{
 #ifdef USE_REALSENSE
 		int ret = pushRsStream(bufferVecP);
+
+
 #endif
 		return ret;
 	}
@@ -329,7 +333,7 @@ namespace unre
 				else if (dataType_.compare("ushort")==0)
 				{
 					bufferVecP[sensorIdx].data = new FrameRingBuffer<unsigned short>(height_, width_, channels_);
-					bufferVecP[sensorIdx].Dtype = "uchar";
+					bufferVecP[sensorIdx].Dtype = "ushort";
 				}
 				else
 				{
@@ -370,11 +374,17 @@ namespace unre
 				CHECK(false) << "NOT SOPPORT TYPE";
 			}
 
-			>>auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data)->pop();
-
+			//auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data)->pop();
+			//int height = ((FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data)->height;
+//			int width = ((FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data)->width;
+//			int channels = ((FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data)->channels;
+//#ifdef OPENCV_SHOW
+//			cv::Mat show1 = cv::Mat(height, width, channels == 1 ? CV_8UC1 : CV_8UC3);
+//			memcpy(show1.data, xxx, height*width*channels * sizeof(unsigned char));
+//#endif
 
 		}
-
+		
 
 
 		return 0;

@@ -40,66 +40,75 @@ namespace unre
 		void initRS();
 		void runRS();
 		int pushRsStream(std::vector<Buffer> &bufferVecP);
-
+		
+		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空//所以外部都要pop
 		template<typename T1, typename T2>
 		void rs_pushStream_2(rs2::pipeline&p, FrameRingBuffer<T1>*buffer1, FrameRingBuffer<T2>*buffer2, DeviceExplorer*current, int channel1, int channel2)
 		{
 			CHECK(channel1 == 1 && channel2 == 2)<<"For rs, when pushing 2 stream, they must be depth and infred!";
 			while (1)
 			{
+				while (!(buffer1->full() || buffer2->full()))
 				{
-					std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
-					while (current->doPause)
 					{
-						current->cv_pause.wait(lck);
-						current->doPause = false;
+						std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
+						while (current->doPause)
+						{
+							current->cv_pause.wait(lck);
+							current->doPause = false;
+						}
 					}
-				}
-				{
-					std::lock_guard <std::mutex> lck(current->termin_mtx);
-					if (current->doTerminate)
 					{
-						LOG(INFO) << "Exit thread";
-						break;
+						std::lock_guard <std::mutex> lck(current->termin_mtx);
+						if (current->doTerminate)
+						{
+							LOG(INFO) << "Exit thread";
+							break;
+						}
 					}
+					rs2::frameset depth_and_color_frameset = p.wait_for_frames();
+					//auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
+					auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
+					auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+					buffer1->push(df_pt);
+					buffer2->push(if_pt);
 				}
-				rs2::frameset depth_and_color_frameset = p.wait_for_frames();
-				//auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
-				auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
-				auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
-				buffer1->push(df_pt);
-				buffer2->push(if_pt);
 			}
 		}
+		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空
 		template<typename T1, typename T2, typename T3>
 		void rs_pushStream_3(rs2::pipeline&p, FrameRingBuffer<T1>*buffer0, FrameRingBuffer<T2>*buffer1, FrameRingBuffer<T3>*buffer2, DeviceExplorer*current)
 		{
 			while (1)
 			{
+				while (!(buffer0->full() || buffer1->full() || buffer2->full()))
 				{
-					std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
-					while (current->doPause)
+
 					{
-						current->cv_pause.wait(lck);
-						current->doPause = false;
+						std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
+						while (current->doPause)
+						{
+							current->cv_pause.wait(lck);
+							current->doPause = false;
+						}
 					}
-				}
-				{
-					std::lock_guard <std::mutex> lck(current->termin_mtx);
-					if (current->doTerminate)
 					{
-						LOG(INFO) << "Exit thread";
-						break;
+						std::lock_guard <std::mutex> lck(current->termin_mtx);
+						if (current->doTerminate)
+						{
+							LOG(INFO) << "Exit thread";
+							break;
+						}
 					}
+					rs2::frameset depth_and_color_frameset = p.wait_for_frames();
+					auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
+					auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
+					auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+
+					buffer0->push(cf_pt);
+					buffer1->push(df_pt);
+					buffer2->push(if_pt);
 				}
-				rs2::frameset depth_and_color_frameset = p.wait_for_frames();
-				auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
-				auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
-				auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
-				
-				buffer0->push(cf_pt);
-				buffer1->push(df_pt);
-				buffer2->push(if_pt);
 			}
 		}
 

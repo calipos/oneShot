@@ -101,7 +101,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;COMPILE_TEST;USE_REALSENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;COMPILE_TEST;USE_REALSENSE;OPENCV_SHOW;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>$(solutionDir)oneShot\3rdPart;$(solutionDir)oneShot\3rdPart\opencv320\include;$(solutionDir)oneShot\3rdPart\realSenselib\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -139,7 +139,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;COMPILE_TEST;USE_REALSENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;COMPILE_TEST;USE_REALSENSE;OPENCV_SHOW;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>$(solutionDir)oneShot\3rdPart;$(solutionDir)oneShot\3rdPart\opencv320\include;$(solutionDir)oneShot\3rdPart\realSenselib\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

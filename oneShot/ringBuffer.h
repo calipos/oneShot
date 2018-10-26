@@ -24,7 +24,7 @@ public:
 	}
 };
 
-#define MAX_QUEUE_SIZE (2)
+#define MAX_QUEUE_SIZE (20)
 
 namespace unre
 {
@@ -107,6 +107,7 @@ namespace unre
 	template < typename T >
 	FrameRingBuffer< T >::~FrameRingBuffer()
 	{
+		//LOG(INFO) << "FrameRingBuffer DESTROYED";
 		delete[] data;
 	}
 

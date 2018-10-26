@@ -4,7 +4,7 @@
 #include"iofile.h"
 #include"dataExplorer.h"
 
-#define OPENCV_SHOW
+
 #ifdef OPENCV_SHOW
 #include "opencv2/opencv.hpp"
 #endif
@@ -46,30 +46,34 @@ namespace unre
 		dev_e->init();
 		dev_e->run();
 		bufferVecP.resize(exactStreamCnt);
-		dev_e->pushStream(bufferVecP);		
+		dev_e->pushStream(bufferVecP);	
+
+
+
 	}
 	int DataExplorer::getBuffer()
 	{
 		LOG(INFO) << bufferVecP.size();
-		for (auto&bufferP : bufferVecP)
-		{
-			if (bufferP.data)
-			{
-				if (bufferP.Dtype=="uchar")
-				{
-					FrameRingBuffer<unsigned char>*ringBuffer = (FrameRingBuffer<unsigned char>*)bufferP.data;
-					unsigned char*frameData = ringBuffer->pop();
-					int height = ringBuffer->height;
-					int width = ringBuffer->width;
-					int channels = ringBuffer->channels;
+		int height = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->height;
+		int width = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->width;
+		int channels = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->channels;
 #ifdef OPENCV_SHOW
-					cv::Mat show1 = cv::Mat(height, width, channels == 1 ? CV_8UC1 : CV_8UC3);
-					memcpy(show1.data, frameData,height*width*channels*sizeof(unsigned char));
+		cv::Mat show1 = cv::Mat(height, width, channels == 1 ? CV_8UC1 : CV_8UC3);
 #endif
-				}
+		while (true)
+		{
+			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop();
+			auto yyy = ((FrameRingBuffer<unsigned char>*)bufferVecP[1].data)->pop();
+			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop();
+#ifdef OPENCV_SHOW
+			memcpy(show1.data, xxx, height*width*channels * sizeof(unsigned char));
+			cv::imshow("123", show1);
+			cv::waitKey(12);
+#endif		
 
-			}
 		}
+
+
 		return 0;
 	}
 }
