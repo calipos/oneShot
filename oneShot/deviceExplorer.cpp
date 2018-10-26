@@ -31,6 +31,28 @@ namespace unre
 	{
 		return runTime_intr;
 	}
+	
+	void DeviceExplorer::pauseThread()
+	{
+		std::unique_lock <std::mutex> lck(cv_pause_mtx);
+		doPause = true; 
+	}
+	void DeviceExplorer::continueThread()
+	{
+		while (doPause)
+		{
+			std::unique_lock <std::mutex> lck(cv_pause_mtx);
+			LOG(INFO) << "NOTICE_ALL";
+			cv_pause.notify_all();
+			doPause = false;
+		}
+	}
+	void DeviceExplorer::terminateThread()
+	{
+		std::unique_lock <std::mutex> lck(termin_mtx);
+		doTerminate = true;
+	}
+	
 	void DeviceExplorer::init()
 	{
 #ifdef USE_REALSENSE		

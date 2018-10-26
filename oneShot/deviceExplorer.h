@@ -35,6 +35,9 @@ namespace unre
 		void run();
 		int pushStream(std::vector<Buffer> &bufferVecP);
 		const std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>getRunTime_intr();
+		void pauseThread();
+		void continueThread() ;
+		void terminateThread() ;
 #ifdef USE_REALSENSE
 	public:
 		void remove_rs_devices(const rs2::event_information& info);
@@ -173,7 +176,9 @@ namespace unre
 						std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
 						while (current->doPause)
 						{
+							LOG(INFO) << "PAUSED!";
 							current->cv_pause.wait(lck);
+							LOG(INFO) << "CONTINUE!";
 							current->doPause = false;
 						}
 					}

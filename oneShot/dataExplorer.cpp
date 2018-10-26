@@ -1,4 +1,5 @@
 #include<algorithm>
+#include<chrono>
 #include"stringOp.h"
 #include"logg.h"
 #include"iofile.h"
@@ -80,7 +81,20 @@ namespace unre
 			cv::imshow("1", show1);
 			cv::imshow("2", show2);
 			cv::imshow("3", show3);
-			cv::waitKey(12);
+			int key = cv::waitKey(12);
+			if (key =='a')
+			{
+				dev_e->pauseThread();
+				for (size_t i = 0; i < 10; i++)
+				{
+					std::this_thread::sleep_for(std::chrono::seconds(1));
+					LOG(INFO) << "WAIT 1s";
+
+				}
+				dev_e->continueThread();
+				//std::this_thread::sleep_for(std::chrono::seconds(5));
+				//dev_e->terminateThread();
+			}
 #endif		
 
 		}
