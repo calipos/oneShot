@@ -16,6 +16,10 @@
 //#pragma comment(lib,"realsense2.lib")   = = 不起作用
 #endif // USE_REALSENSE
 
+#ifdef USE_VIRTUALCAMERA
+#include"opencv2/opencv.hpp"
+#endif
+
 namespace unre
 {
 
@@ -111,12 +115,90 @@ namespace unre
 				}
 			}
 		}
-
-
 	private:		
 		rs2::context rs_ctx;
 		std::unordered_map<std::string, std::tuple<rs2::pipeline, rs2::config, rs2::pipeline_profile, std::unordered_map<std::string, int>>> rsMap;
 #endif // USE_REALSENSE
+#ifdef USE_VIRTUALCAMERA
+	public:
+		void initVirtualCamera();
+		void runVirtualCamera();
+		int pushVirtualCameraStream(std::vector<Buffer> &bufferVecP);
+		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空//所以外部都要pop
+		template<typename T1, typename T2>
+		void virtualCamera_pushStream_2(FrameRingBuffer<T1>*buffer1, FrameRingBuffer<T2>*buffer2, DeviceExplorer*current, int channel1, int channel2)
+		{
+			CHECK(channel1 == 1 && channel2 == 2) << "For rs, when pushing 2 stream, they must be depth and infred!";
+			unsigned int showFrameIdx = 0;
+			while (1)
+			{
+				while (!(buffer1->full() || buffer2->full()))
+				{
+					{
+						std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
+						while (current->doPause)
+						{
+							current->cv_pause.wait(lck);
+							current->doPause = false;
+						}
+					}
+					{
+						std::lock_guard <std::mutex> lck(current->termin_mtx);
+						if (current->doTerminate)
+						{
+							LOG(INFO) << "Exit thread";
+							break;
+						}
+					}
+
+					cv::Mat dep_temp = cv::Mat::ones(buffer1->height, buffer1->width, CV_16UC1)*(showFrameIdx * 100 % 65000);
+					cv::Mat inf_temp = cv::Mat::ones(buffer2->height, buffer2->width, CV_8UC1)*(showFrameIdx % 250);
+					showFrameIdx++;
+					buffer1->push((unsigned short*)dep_temp.data);
+					buffer2->push(inf_temp.data);
+				}
+			}
+		}
+		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空
+		template<typename T1, typename T2, typename T3>
+		void virtualCamera_pushStream_3(FrameRingBuffer<T1>*buffer0, FrameRingBuffer<T2>*buffer1, FrameRingBuffer<T3>*buffer2, DeviceExplorer*current)
+		{
+			unsigned int showFrameIdx = 0;
+			while (1)
+			{
+				while (!(buffer0->full() || buffer1->full() || buffer2->full()))
+				{
+
+					{
+						std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
+						while (current->doPause)
+						{
+							current->cv_pause.wait(lck);
+							current->doPause = false;
+						}
+					}
+					{
+						std::lock_guard <std::mutex> lck(current->termin_mtx);
+						if (current->doTerminate)
+						{
+							LOG(INFO) << "Exit thread";
+							break;
+						}
+					}
+					cv::Mat color_temp = cv::Mat::ones(buffer0->height, buffer0->width, CV_8UC3)*(showFrameIdx % 250);
+					cv::Mat dep_temp = cv::Mat::ones(buffer1->height, buffer1->width, CV_16UC1)*(showFrameIdx * 100 % 65000);
+					cv::Mat inf_temp = cv::Mat::ones(buffer2->height, buffer2->width, CV_8UC1)*(showFrameIdx % 250);
+					showFrameIdx++;
+
+					buffer0->push(color_temp.data);
+					buffer1->push((unsigned short*)dep_temp.data);
+					buffer2->push(inf_temp.data);
+				}
+			}
+		}
+	private:
+		std::unordered_map<std::string, std::unordered_map<std::string, int>> virtualCameraMap;
+#endif // USE_VIRTUALCAMERA
 	private:
 		std::vector<std::string> serial_numbers_;
 		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorInfo_;
@@ -133,6 +215,8 @@ namespace unre
 		std::atomic<bool> doTerminate = false;
 
 		std::vector<std::thread> threadSet;
+		bool existRS = false;//是否需要用到RS
+		bool existVirtualCamera = false;//是否需要用到虚拟camera
 	};
 
 }

@@ -1,5 +1,6 @@
 #include<set>
 #include<thread>
+#include"stringOp.h"
 #include"deviceExplorer.h"
 #include"dataExplorer.h"
 #include"ringBuffer.h"
@@ -32,25 +33,61 @@ namespace unre
 	}
 	void DeviceExplorer::init()
 	{
-#ifdef USE_REALSENSE
-		initRS();
+#ifdef USE_REALSENSE		
+		for(auto&dev:serial_numbers_)
+		{
+			if (StringOP::splitString(dev, ",")[0].compare("realsenseD415")==0)
+			{
+				existRS = true;
+				break;
+			}
+		}
+		if (existRS)
+		{
+			initRS();
+		}
+#endif
+#ifdef USE_VIRTUALCAMERA		
+		for (auto&dev : serial_numbers_)
+		{
+			if (StringOP::splitString(dev, ",")[0].compare("virtualCamera") == 0)
+			{
+				existVirtualCamera = true;
+				break;
+			}
+		}
+		if (existVirtualCamera)
+		{
+			initVirtualCamera();
+		}		
 #endif
 		isDevicesInit=true;
 	}
 	void DeviceExplorer::run()
 	{
 #ifdef USE_REALSENSE
-		runRS();
+		if (existRS)
+		{
+			runRS();
+		}		
+#endif
+#ifdef USE_VIRTUALCAMERA
+		if (existVirtualCamera)
+		{
+			runVirtualCamera();
+		}
 #endif
 		isDevicesRunning = true;
 	}
 
 	int DeviceExplorer::pushStream(std::vector<Buffer> &bufferVecP)
 	{
+		int ret = 0;
 #ifdef USE_REALSENSE
-		int ret = pushRsStream(bufferVecP);
-
-
+		int ret0 = pushRsStream(bufferVecP);
+#endif
+#ifdef USE_VIRTUALCAMERA
+		int ret1= pushVirtualCameraStream(bufferVecP);
 #endif
 		return ret;
 	}
@@ -385,7 +422,179 @@ namespace unre
 
 		}
 		
+		return 0;
+	}
+#endif
+#ifdef USE_VIRTUALCAMERA
+	void DeviceExplorer::initVirtualCamera()
+	{
+		CHECK(serial_numbers_.size()>0) << "the virtualCamera sn is NULL";
+		std::set<std::string> serial_number_set;
+		for (auto&d : serial_numbers_) serial_number_set.insert(d);
+		CHECK(serial_number_set.size() == serial_numbers_.size()) << "the serial_numbers duplicated";
+		bool dev_not_find = false;
+		for (auto&& dev : std::vector<std::string>{ {"0"},{"1"},{"2"} })
+		{
+			std::string serial_number(dev);
+			std::lock_guard<std::mutex> lock(_mutex);
+			if (serial_numbers_.end() == std::find(serial_numbers_.begin(), serial_numbers_.end(), "virtualCamera," + serial_number))
+			{
+				continue;
+			}
+			else
+			{
+				std::string key_ = "virtualCamera," + serial_number;
+				int rgb_h = -1, rgb_w = -1;
+				int dep_h = -1, dep_w = -1;
+				int inf_h = -1, inf_w = -1;
+				std::unordered_map<std::string, int> streamTable;
+				if (sensorInfo_.end() == std::find_if(sensorInfo_.begin(), sensorInfo_.end(), [&](auto&item)
+				{
+					if (key_.compare(std::get<0>(item)) != 0) return false;
+					auto &this_rs_dev = std::get<1>(item);
+					for (auto&map_item : this_rs_dev)
+					{
+						if (map_item.first.compare("rgb") == 0)
+						{
+							int streamIdx = std::get<0>(map_item.second);
+							streamTable["rgb"] = streamIdx;
+							rgb_h = std::get<1>(map_item.second);
+							rgb_w = std::get<2>(map_item.second);
+						}
+						if (map_item.first.compare("depth") == 0)
+						{
+							int streamIdx = std::get<0>(map_item.second);
+							streamTable["depth"] = streamIdx;
+							dep_h = std::get<1>(map_item.second);
+							dep_w = std::get<2>(map_item.second);
+						}
+						if (map_item.first.compare("infred") == 0)
+						{
+							int streamIdx = std::get<0>(map_item.second);
+							streamTable["infred"] = streamIdx;
+							inf_h = std::get<1>(map_item.second);
+							inf_w = std::get<2>(map_item.second);
+						}
+					}
+					return true;
 
+				}))
+				{
+					CHECK(false) << "SN not match the jsonExplorer Info!";
+				}
+				CHECK(dep_h > 0 && dep_w > 0 && dep_h == inf_h && dep_w == inf_w) << "RS's depth and infred must be set the same!";
+				if (rgb_h<1)
+				{
+					rgb_h = dep_h;
+					rgb_w = dep_w;
+				}
+				dev_not_find = true;
+				virtualCameraMap[key_] = streamTable;
+			}
+		}
+
+		if (!dev_not_find)
+		{
+			CHECK(false) << "the serial number specified in config not match the ctx!";
+		}
+	}
+	void DeviceExplorer::runVirtualCamera()
+	{
+	}
+	int DeviceExplorer::pushVirtualCameraStream(std::vector<Buffer> &bufferVecP)
+	{
+		CHECK(bufferVecP.size()>0) << "bufferVecP must be resize before!";
+		int virtualCamera_stream_cnt = 0;
+		for (auto&vc : virtualCameraMap)
+		{
+			for (auto&stream_ : vc.second)
+			{
+				virtualCamera_stream_cnt++;
+			}
+		}
+		CHECK(virtualCamera_stream_cnt <= bufferVecP.size()) << "virtualCamera stream cnt big than total stream cnt: (" << virtualCamera_stream_cnt << " : " << bufferVecP.size() << ")";
+		for (auto&vc : virtualCameraMap)
+		{
+			auto&this_dev_info = vc.second;
+			std::vector<int> bufferIdx(10, -1);//一个相机支持最多输出10个流，0位代表rgb，1位代表dep，2位代表inf
+			for (auto&sensorInfo : this_dev_info)
+			{
+				const std::string&sensorType = sensorInfo.first;
+				const int&sensorIdx = sensorInfo.second;
+				int height_ = -1;
+				int width_ = -1;;
+				int channels_ = -1;
+				std::string sensorType_ = "";
+				std::string dataType_ = "";
+				if (sensorInfo_.end() == std::find_if(sensorInfo_.begin(), sensorInfo_.end(), [&](auto&item)
+				{
+					auto&dev_map = std::get<1>(item);
+					for (auto&this_sensor : dev_map)
+					{
+						if (sensorIdx == std::get<0>(this_sensor.second))
+						{
+							sensorType_ = this_sensor.first;
+							height_ = std::get<1>(this_sensor.second);
+							width_ = std::get<2>(this_sensor.second);
+							channels_ = std::get<3>(this_sensor.second);
+							dataType_ = std::get<4>(this_sensor.second);
+							return true;
+						}
+					}
+					return false;
+				}))
+				{
+					CHECK(false) << "MATCH ERR";
+				}
+
+				CHECK(bufferVecP[sensorIdx].data == NULL) << "there should be null";
+				if (dataType_.compare("uchar") == 0)
+				{
+					bufferVecP[sensorIdx].data = new FrameRingBuffer<unsigned char>(height_, width_, channels_);
+					bufferVecP[sensorIdx].Dtype = "uchar";
+				}
+				else if (dataType_.compare("ushort") == 0)
+				{
+					bufferVecP[sensorIdx].data = new FrameRingBuffer<unsigned short>(height_, width_, channels_);
+					bufferVecP[sensorIdx].Dtype = "ushort";
+				}
+				else
+				{
+					CHECK(false) << "NOT SOPPORT TYPE";
+				}
+				if (sensorType_.compare("rgb") == 0)
+				{
+					bufferIdx[0] = sensorIdx;
+				}
+				else if (sensorType_.compare("depth") == 0)
+				{
+					bufferIdx[1] = sensorIdx;
+				}
+				else if (sensorType_.compare("infred") == 0)
+				{
+					bufferIdx[2] = sensorIdx;
+				}
+				else
+				{
+					CHECK(false) << "NOT SOPPORT TYPE";
+				}
+			}
+
+			//TODO:not elegent
+			if (bufferIdx[0] >= 0 && bufferIdx[1] >= 0 && bufferIdx[2] >= 0)
+			{
+				threadSet.emplace_back(std::thread(&DeviceExplorer::virtualCamera_pushStream_3<unsigned char, unsigned short, unsigned char>, this, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, this));
+			}
+			else if (bufferIdx[0] < 0 && bufferIdx[1] >= 0 && bufferIdx[2] >= 0)
+			{
+				threadSet.emplace_back(std::thread(&DeviceExplorer::virtualCamera_pushStream_2<unsigned short, unsigned char>, this, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, this, 1, 2));
+			}
+			else
+			{
+				CHECK(false) << "NOT SOPPORT TYPE";
+			}
+
+		}
 
 		return 0;
 	}

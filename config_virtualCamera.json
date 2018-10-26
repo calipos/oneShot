@@ -1,0 +1,40 @@
+[{
+	"friendName": "virtualCamera",
+	"serialNumber": "0",
+	"sensorType": "rgb",
+	"height": 360,
+	"width": 480,
+	"channels": 3,
+	"Dtype": "uchar",
+	"cx":972.242432,
+	"cy":543.042908,
+	"fx":1394.96472,
+	"fy":1394.35864,	
+	"extraConfigPath": ""
+}, {
+	"friendName": "virtualCamera",
+	"serialNumber": "1",
+	"sensorType": "depth",
+	"height": 300,
+	"width": 400,
+	"channels": 1,
+	"Dtype": "ushort",
+	"cx":643.623596,
+	"cy":643.802643,
+	"fx":943.721985,
+	"fy":943.721985,
+	"extraConfigPath": ""
+}, {
+	"friendName": "virtualCamera",
+	"serialNumber": "2",
+	"sensorType": "infred",
+	"height": 300,
+	"width": 400,
+	"channels": 1,
+	"Dtype": "uchar",
+	"cx":643.623596,
+	"cy":643.802643,
+	"fx":943.721985,
+	"fy":943.721985,
+	"extraConfigPath": ""
+}]
