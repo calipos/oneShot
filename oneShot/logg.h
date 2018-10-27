@@ -4,10 +4,14 @@
 #include<sstream>
 #include<string>
 #include<fstream>
+#include<mutex>
 #include<assert.h>
 #include<time.h>
 #include "iofile.h"
 #include "errorCode.h"
+
+
+
 static std::string LOGLEVELS[] = { "INFO", "WARNING", "ERROR", "FATAL", "STACKTRACE" };
 
 const int GLOG_INFO = 0;
@@ -50,48 +54,9 @@ namespace LOGG
 	class logger
 	{
 	public:
-		logger(const char*fileName, int lineIdx, int logLevel)
-		{
-			curLogLevel = logLevel;
-			curNevery = -1;
-			const time_t t = time(NULL);
-			logStreamData.str("");
-			logStreamData << LOGLEVELS[logLevel] << ":" << t
-				<< "[" << fileName << " : " << lineIdx << "]";
-		}
-		logger(const char*fileName, int lineIdx, int logLevel, int Nevery)
-		{
-			curLogLevel = logLevel;
-			curNevery = Nevery;
-			logLoopCnt++;
-			const time_t t = time(NULL);
-			logStreamData.str("");
-			logStreamData << LOGLEVELS[logLevel] << ":" << t
-				<< "[" << fileName << " : " << lineIdx << "]";
-		}
-		~logger()
-		{
-			const time_t t = time(NULL);
-			std::string logFile = LOGDIRPATH  + std::to_string(t / 50)+".txt";
-			std::ofstream fout(logFile,std::ios::app);
-			if (curNevery<0 && curLogLevel >= 0)
-			{
-				fout<< logStreamData.str() << std::endl;
-				std::cout << logStreamData.str() << std::endl;
-			}
-			if (curNevery>0 && curLogLevel >= 0 && logLoopCnt % 10 == 0)
-			{
-				fout << logStreamData.str() << std::endl;
-				std::cout << logStreamData.str() << std::endl;
-			}
-			if (curLogLevel >= 3)
-			{
-				assert(false);
-				system("pause");
-			}
-			fout.close();
-		}
-
+		logger(const char*fileName, int lineIdx, int logLevel);
+		logger(const char*fileName, int lineIdx, int logLevel, int Nevery);
+		~logger();
 		int curLogLevel;
 		int curNevery;
 		std::stringstream&getStream()

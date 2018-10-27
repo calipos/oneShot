@@ -64,23 +64,37 @@ namespace unre
 		int height3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->height;
 		int width3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->width;
 		int channels3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->channels;
+		int height4 = ((FrameRingBuffer<unsigned short>*)bufferVecP[3].data)->height;
+		int width4 = ((FrameRingBuffer<unsigned short>*)bufferVecP[3].data)->width;
+		int channels4 = ((FrameRingBuffer<unsigned short>*)bufferVecP[3].data)->channels;
+		int height5 = ((FrameRingBuffer<unsigned char>*)bufferVecP[4].data)->height;
+		int width5 = ((FrameRingBuffer<unsigned char>*)bufferVecP[4].data)->width;
+		int channels5 = ((FrameRingBuffer<unsigned char>*)bufferVecP[4].data)->channels;
 #ifdef OPENCV_SHOW
 		cv::Mat show1 = cv::Mat(height1, width1, channels1 == 1 ? CV_8UC1 : CV_8UC3);
 		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
 		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);
+		cv::Mat show4 = cv::Mat(height4, width4, channels4 == 1 ? CV_16UC1 : CV_16UC3);
+		cv::Mat show5 = cv::Mat(height5, width5, channels5 == 1 ? CV_8UC1 : CV_8UC3);
 #endif
 		while (true)
 		{
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop();
 			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop();
 			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop();
+			auto uuu = ((FrameRingBuffer<unsigned short>*)bufferVecP[3].data)->pop();
+			auto vvv = ((FrameRingBuffer<unsigned char>*)bufferVecP[4].data)->pop();
 #ifdef OPENCV_SHOW
 			memcpy(show1.data, xxx, height1*width1*channels1 * sizeof(unsigned char));
 			memcpy(show2.data, yyy, height2*width2*channels2 * sizeof(unsigned short));
 			memcpy(show3.data, zzz, height3*width3*channels3 * sizeof(unsigned char));
+			memcpy(show4.data, uuu, height4*width4*channels4 * sizeof(unsigned short));
+			memcpy(show5.data, vvv, height5*width5*channels5 * sizeof(unsigned char));
 			cv::imshow("1", show1);
 			cv::imshow("2", show2);
 			cv::imshow("3", show3);
+			cv::imshow("4", show4);
+			cv::imshow("5", show5);
 			int key = cv::waitKey(12);
 			if (key =='a')
 			{

@@ -139,16 +139,12 @@ namespace unre
 		std::set<std::string> serial_number_set;
 		for (auto&d : serial_numbers) serial_number_set.insert(d);
 		CHECK(serial_number_set.size()== serial_numbers.size())<<"the serial_numbers duplicated";
-		bool dev_not_find = false;
+		int dev_find_num = 0;
 		for (auto&& dev : rs_ctx.query_devices())
 		{
 			std::string serial_number(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
 			std::lock_guard<std::mutex> lock(_mutex);
-			if (serial_numbers.end() == std::find(serial_numbers.begin(), serial_numbers.end(), "realsenseD415,"+serial_number))
-			{
-				continue;
-			}
-			else
+			if (serial_numbers.end() != std::find(serial_numbers.begin(), serial_numbers.end(), "realsenseD415,"+serial_number))
 			{
 				if ("Intel RealSense D415" != std::string(dev.get_info(RS2_CAMERA_INFO_NAME)))
 				{
@@ -177,13 +173,13 @@ namespace unre
 						std::fstream fs("rs415_setting.json");
 						std::stringstream ss;
 						ss << fs.rdbuf();
-						str = ss.str(); 
+						str = ss.str();
 					}
 					advanced_mode_dev.load_json(str);
 				}
 				else
 				{
-					CHECK(false)<< "Current device doesn't support advanced-mode!\n";
+					CHECK(false) << "Current device doesn't support advanced-mode!\n";
 				}
 				std::vector<rs2::sensor> sensors = dev.query_sensors();
 				auto color_sensor = sensors[1]; //1 color sensor 0 depth 
@@ -212,17 +208,17 @@ namespace unre
 
 				std::string key_ = "realsenseD415," + serial_number;
 
-				int rgb_h = -1, rgb_w = -1 ;
-				int dep_h = -1, dep_w = -1 ;
-				int inf_h = -1, inf_w = -1 ;
+				int rgb_h = -1, rgb_w = -1;
+				int dep_h = -1, dep_w = -1;
+				int inf_h = -1, inf_w = -1;
 				std::unordered_map<std::string, int> streamTable;
-				if (sensorInfo.end() == std::find_if(sensorInfo.begin(), sensorInfo.end(), [&](auto&item) 
+				if (sensorInfo.end() == std::find_if(sensorInfo.begin(), sensorInfo.end(), [&](auto&item)
 				{
-					if (key_.compare(std::get<0>(item))!=0) return false;
+					if (key_.compare(std::get<0>(item)) != 0) return false;
 					auto &this_rs_dev = std::get<1>(item);
 					for (auto&map_item : this_rs_dev)
 					{
-						if (map_item.first.compare("rgb")==0)
+						if (map_item.first.compare("rgb") == 0)
 						{
 							int streamIdx = std::get<0>(map_item.second);
 							streamTable["rgb"] = streamIdx;
@@ -245,18 +241,17 @@ namespace unre
 						}
 					}
 					return true;
-				
+
 				}))
 				{
-					CHECK(false)<<"SN not match the jsonExplorer Info!";
+					CHECK(false) << "SN not match the jsonExplorer Info!";
 				}
-				CHECK(dep_h > 0 && dep_w > 0 && dep_h == inf_h && dep_w == inf_w)<<"RS's depth and infred must be set the same!";
+				CHECK(dep_h > 0 && dep_w > 0 && dep_h == inf_h && dep_w == inf_w) << "RS's depth and infred must be set the same!";
 				if (rgb_h<1)
 				{
 					rgb_h = dep_h;
 					rgb_w = dep_w;
 				}
-				dev_not_find = true;
 				rs2::pipeline p;
 				rs2::config c;
 				rs2::pipeline_profile profile;
@@ -265,14 +260,15 @@ namespace unre
 				//c.enable_stream(RS2_STREAM_COLOR, 1280, 720, RS2_FORMAT_RGB8, 30);
 				c.enable_stream(RS2_STREAM_DEPTH, dep_w, dep_h, RS2_FORMAT_Z16, 30);
 				c.enable_stream(RS2_STREAM_INFRARED, 1, inf_w, inf_h, RS2_FORMAT_Y8, 30);
-
 				//profile = p.start(c);
-
-				rsMap[key_] = std::make_tuple(p,c, profile, streamTable);
+				rsMap[key_] = std::make_tuple(p, c, profile, streamTable);
+				dev_find_num++;
+				continue;
 			}
+			
 		}
 	
-		if (!dev_not_find)
+		if (dev_find_num!= serial_numbers.size())
 		{
 			CHECK(false)<<"the serial number specified in config not match the ctx!";
 		}
@@ -454,16 +450,12 @@ namespace unre
 		std::set<std::string> serial_number_set;
 		for (auto&d : serial_numbers_) serial_number_set.insert(d);
 		CHECK(serial_number_set.size() == serial_numbers_.size()) << "the serial_numbers duplicated";
-		bool dev_not_find = false;
-		for (auto&& dev : std::vector<std::string>{ {"0"},{"1"},{"2"} })
+		int dev_find_num = 0;
+		for (auto&& dev : std::vector<std::string>{ {"0"},{"1"},{"2"} })//有3个虚拟设备
 		{
 			std::string serial_number(dev);
 			std::lock_guard<std::mutex> lock(_mutex);
-			if (serial_numbers_.end() == std::find(serial_numbers_.begin(), serial_numbers_.end(), "virtualCamera," + serial_number))
-			{
-				continue;
-			}
-			else
+			if (serial_numbers_.end() != std::find(serial_numbers_.begin(), serial_numbers_.end(), "virtualCamera," + serial_number))
 			{
 				std::string key_ = "virtualCamera," + serial_number;
 				int rgb_h = -1, rgb_w = -1;
@@ -510,12 +502,13 @@ namespace unre
 					rgb_h = dep_h;
 					rgb_w = dep_w;
 				}
-				dev_not_find = true;
 				virtualCameraMap[key_] = streamTable;
+				dev_find_num++;
+				continue;
 			}
 		}
 
-		if (!dev_not_find)
+		if (dev_find_num!= serial_numbers_.size())
 		{
 			CHECK(false) << "the serial number specified in config not match the ctx!";
 		}

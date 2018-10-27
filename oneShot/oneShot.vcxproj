@@ -170,6 +170,7 @@
   <ItemGroup>
     <ClCompile Include="deviceExplorer.cpp" />
     <ClCompile Include="JsonExplorer.cpp" />
+    <ClCompile Include="logg.cpp" />
     <ClCompile Include="TEST_buffer_thread.cpp" />
     <ClCompile Include="dataExplorer.cpp" />
     <ClCompile Include="iofile.cpp" />

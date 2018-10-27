@@ -37,6 +37,9 @@
     <Filter Include="源文件\TEST">
       <UniqueIdentifier>{4821fcc7-6abe-4ac6-a687-4032a472d058}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\utils\logg">
+      <UniqueIdentifier>{b9b3085b-f4f1-4896-86dc-e7ebf60dbd35}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logg.h">
@@ -106,6 +109,9 @@
     </ClCompile>
     <ClCompile Include="deviceExplorer.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="logg.cpp">
+      <Filter>源文件\utils\logg</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
