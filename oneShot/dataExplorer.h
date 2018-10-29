@@ -14,12 +14,14 @@ namespace unre
 		DataExplorer(DataExplorer&de) = delete;
 		DataExplorer(DataExplorer&&de) = delete;
 		explicit DataExplorer(int streamNum = 9);
+		int getExactStreamCnt();
 		~DataExplorer() {};
 		int getBuffer();
 	private:
 		std::vector<Buffer> bufferVecP;
 		JsonExplorer je;
 		DeviceExplorer* dev_e;
+		int exactStreamCnt = 0;
 	};
 }
 

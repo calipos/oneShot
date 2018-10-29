@@ -1,4 +1,4 @@
-#include<algorithm>
+﻿#include<algorithm>
 #include<chrono>
 #include"stringOp.h"
 #include"logg.h"
@@ -24,12 +24,12 @@ namespace unre
 		}
 		else
 		{
-			CHECK(false) << "no config.json, even config_default.json������";
+			CHECK(false) << "no config.json, even config_default.jsonㄐㄐㄐ";
 		}
-		int exactStreamCnt = 0;
+		int tmp_exactStreamCnt = 0;
 		auto &SensorsInfo = je.getSensorAssignmentInfo();
 		std::vector<std::string> usedDeviceType;
-		std::find_if( SensorsInfo.begin(), SensorsInfo.end(), [&usedDeviceType,&exactStreamCnt](auto&item)
+		std::find_if(SensorsInfo.begin(), SensorsInfo.end(), [&usedDeviceType, &tmp_exactStreamCnt](auto&item)
 		{
 			const std::string &this_dev_type = std::get<0>(item);
 			if (usedDeviceType.end() == std::find(usedDeviceType.begin(), usedDeviceType.end(), this_dev_type))
@@ -37,24 +37,32 @@ namespace unre
 				usedDeviceType.emplace_back(this_dev_type);
 				LOG(INFO) << this_dev_type << " HAS BEEN SET.";
 			}
-			exactStreamCnt += std::get<1>(item).size();
+			tmp_exactStreamCnt += std::get<1>(item).size();
 			return false;
 		});
+		exactStreamCnt = tmp_exactStreamCnt;
 		LOG(INFO) << SensorsInfo.size() << " devices are required.";
 
 
 		dev_e = new DeviceExplorer(usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
 		dev_e->init();
 		dev_e->run();
-		bufferVecP.resize(exactStreamCnt);
-		dev_e->pushStream(bufferVecP);	
+		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
+		for (auto&item : bufferVecP)  item = Buffer();
+		dev_e->pushStream(bufferVecP);
 
 
 
 	}
+
+	int DataExplorer::getExactStreamCnt()
+	{
+		return exactStreamCnt;
+	}
+
 	int DataExplorer::getBuffer()
 	{
-		LOG(INFO) << bufferVecP.size();
+		for (auto&item : bufferVecP)  CHECK(item.data) << "null data is disallowed!";		
 		int height1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->height;
 		int width1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->width;
 		int channels1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->channels;
@@ -106,14 +114,18 @@ namespace unre
 
 				}
 				dev_e->continueThread();
-				//std::this_thread::sleep_for(std::chrono::seconds(5));
-				//dev_e->terminateThread();
+			}
+			else if (key == 'q')
+			{
+				dev_e->terminateThread();
+				cv::destroyAllWindows();
+				break;
 			}
 #endif		
-
 		}
-
-
 		return 0;
 	}
+
+	int getBuffer(int streamIdx);
+
 }
