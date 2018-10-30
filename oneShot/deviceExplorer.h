@@ -28,7 +28,7 @@ namespace unre
 	{
 	public:
 		DeviceExplorer();
-		DeviceExplorer(const std::vector<std::string>& serial_numbers,
+		DeviceExplorer(const std::string&jsonFile,const std::vector<std::string>& serial_numbers,
 			const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& sensorInfo,
 			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath);
 		void init();
@@ -47,6 +47,7 @@ namespace unre
 		void initRS();
 		void runRS();
 		int pushRsStream(std::vector<Buffer> &bufferVecP);
+		int checkRsIntriParamAndWriteBack(const std::string&jsonFile, const std::string&sn, const std::string&sensorType,const std::string&whichIntr,const double&param);//this action doing after running
 		
 		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空//所以外部都要pop
 		template<typename T1, typename T2>
@@ -205,6 +206,7 @@ namespace unre
 		std::unordered_map<std::string, std::unordered_map<std::string, int>> virtualCameraMap;
 #endif // USE_VIRTUALCAMERA
 	private:
+		std::string jsonFile_;//this file is the init file, that is useful for modifying the intriParam
 		std::vector<std::string> serial_numbers_;
 		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorInfo_;
 		std::vector<std::tuple<std::string, std::string>>  getExtraConfigFilPath_;

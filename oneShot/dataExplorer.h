@@ -16,7 +16,8 @@ namespace unre
 		explicit DataExplorer(int streamNum = 9);
 		int getExactStreamCnt();
 		~DataExplorer() {};
-		int getBuffer();
+		int getBuffer_fortest();
+		const std::vector<Buffer>&getBufferVecP();
 	private:
 		std::vector<Buffer> bufferVecP;
 		JsonExplorer je;

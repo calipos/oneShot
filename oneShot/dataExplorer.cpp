@@ -14,13 +14,16 @@ namespace unre
 {
 	DataExplorer::DataExplorer(int streamNum)
 	{
+		std::string theInitFile;
 		if (FileOP::FileExist("config.json"))
 		{
 			je = JsonExplorer("config.json");
+			theInitFile = "config.json";
 		}
 		else if (FileOP::FileExist("config_default.json"))
 		{
 			je = JsonExplorer("config_default.json");
+			theInitFile = "config_default.json";
 		}
 		else
 		{
@@ -44,7 +47,7 @@ namespace unre
 		LOG(INFO) << SensorsInfo.size() << " devices are required.";
 
 
-		dev_e = new DeviceExplorer(usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
+		dev_e = new DeviceExplorer(theInitFile,usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
 		dev_e->init();
 		dev_e->run();
 		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
@@ -60,7 +63,7 @@ namespace unre
 		return exactStreamCnt;
 	}
 
-	int DataExplorer::getBuffer()
+	int DataExplorer::getBuffer_fortest()
 	{
 		for (auto&item : bufferVecP)  CHECK(item.data) << "null data is disallowed!";		
 		int height1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->height;
@@ -126,6 +129,8 @@ namespace unre
 		return 0;
 	}
 
-	int getBuffer(int streamIdx);
-
+	const std::vector<Buffer>&DataExplorer::getBufferVecP()
+	{
+		return bufferVecP;
+	}
 }

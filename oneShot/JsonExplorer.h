@@ -21,7 +21,7 @@ namespace unre
 		JsonExplorer & operator=(const JsonExplorer& other);
 		~JsonExplorer();
 		template<typename Dtype>
-		inline Dtype getValue(const rapidjson::Value &node, const char*key);
+		inline static Dtype getValue(const rapidjson::Value &node, const char*key);
 		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& getSensorAssignmentInfo();
 		const std::vector<std::tuple<std::string,std::string>> & getExtraConfigFilPath();
 	private:

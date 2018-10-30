@@ -4,6 +4,11 @@
 #include"deviceExplorer.h"
 #include"dataExplorer.h"
 #include"ringBuffer.h"
+
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/stringbuffer.h"
+
 #ifdef OPENCV_SHOW
 #include "opencv2/opencv.hpp"
 #endif
@@ -19,10 +24,13 @@ namespace unre
 	{
 	}
 
-	DeviceExplorer::DeviceExplorer(const std::vector<std::string>& serial_numbers,
+	DeviceExplorer::DeviceExplorer(
+		const std::string&jsonFile,		
+		const std::vector<std::string>& serial_numbers,
 		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& sensorInfo,
 		const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath)
 	{
+		jsonFile_ = jsonFile;
 		serial_numbers_ = serial_numbers;
 		sensorInfo_ = sensorInfo;
 		getExtraConfigFilPath_ = getExtraConfigFilPath;
@@ -113,6 +121,8 @@ namespace unre
 #endif
 		return ret;
 	}
+
+	
 
 #ifdef USE_REALSENSE
 	void DeviceExplorer::remove_rs_devices(const rs2::event_information& info)
@@ -310,6 +320,10 @@ namespace unre
 					runTime_intr[name_sn]["rgb"]["cy"] = c_i.ppy;
 					runTime_intr[name_sn]["rgb"]["fx"] = c_i.fx;
 					runTime_intr[name_sn]["rgb"]["fy"] = c_i.fy;
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "rgb", "cx", c_i.ppx);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "rgb", "cy", c_i.ppy);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "rgb", "fx", c_i.fx);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "rgb", "fy", c_i.fy);
 				}
 				else if (sensorType.compare("depth") == 0)
 				{
@@ -317,6 +331,10 @@ namespace unre
 					runTime_intr[name_sn]["depth"]["cy"] = d_i.ppy;
 					runTime_intr[name_sn]["depth"]["fx"] = d_i.fx;
 					runTime_intr[name_sn]["depth"]["fy"] = d_i.fy;
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "depth", "cx", d_i.ppx);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "depth", "cy", d_i.ppy);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "depth", "fx", d_i.fx);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "depth", "fy", d_i.fy);
 				}
 				else if (sensorType.compare("infred") == 0)
 				{
@@ -324,6 +342,10 @@ namespace unre
 					runTime_intr[name_sn]["infred"]["cy"] = f_i.ppy;
 					runTime_intr[name_sn]["infred"]["fx"] = f_i.fx;
 					runTime_intr[name_sn]["infred"]["fy"] = f_i.fy;
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "infred", "cx", f_i.ppx);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "infred", "cy", f_i.ppy);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "infred", "fx", f_i.fx);
+					checkRsIntriParamAndWriteBack(jsonFile_, name_sn, "infred", "fy", f_i.fy);
 				}
 				else
 				{
@@ -440,6 +462,60 @@ namespace unre
 
 		}
 		
+		return 0;
+	}
+	////this action doing after running
+	int DeviceExplorer::checkRsIntriParamAndWriteBack(
+		const std::string&jsonFile, 
+		const std::string&snAndFriendname, 
+		const std::string&sensorType, 
+		const std::string&whichIntr, 
+		const double&param)
+	{
+		rapidjson::Document docRoot;
+		docRoot.Parse<0>(unre::StringOP::parseJsonFile2str(jsonFile.c_str()).c_str());
+		if (!docRoot.IsArray())
+		{
+			LOG(FATAL) << "the json file err, not a array!!!";
+		}
+		int theSensorCnt = docRoot.Size();
+		if (theSensorCnt < 1)
+		{
+			LOG(FATAL) << "the json file err, just 1 sensor?!!!";
+		}
+		bool hasFindTheSourceParam = false;
+		for (int configIdx = 0; configIdx < theSensorCnt; configIdx++)
+		{
+			
+			std::string this_dtype = JsonExplorer::getValue<std::string>(docRoot[configIdx], "Dtype");
+			std::string this_friendName = JsonExplorer::getValue<std::string>(docRoot[configIdx], "friendName");
+			std::string this_sn = JsonExplorer::getValue<std::string>(docRoot[configIdx], "serialNumber");
+			std::string this_sensorType = JsonExplorer::getValue<std::string>(docRoot[configIdx], "sensorType");
+			double this_cx = JsonExplorer::getValue<double>(docRoot[configIdx], "cx");
+			double this_cy = JsonExplorer::getValue<double>(docRoot[configIdx], "cy");
+			double this_fx = JsonExplorer::getValue<double>(docRoot[configIdx], "fx");
+			double this_fy = JsonExplorer::getValue<double>(docRoot[configIdx], "fy");
+			if (snAndFriendname.compare(this_friendName+","+ this_sn)==0 && this_sensorType.compare(sensorType)==0)
+			{
+				hasFindTheSourceParam = true;
+				docRoot[configIdx][whichIntr.c_str()].SetDouble(param);
+				break;
+			}
+		}
+		if (!hasFindTheSourceParam)
+		{
+			LOG(FATAL) << "the source param is not found,that actually fatal!";
+		}
+		else
+		{
+			rapidjson::StringBuffer buffer;
+			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+			docRoot.Accept(writer);
+			std::string reststring = buffer.GetString();
+			std::fstream fout(jsonFile, std::ios::out);
+			fout << reststring << std::endl;
+			fout.close();
+		}
 		return 0;
 	}
 #endif
