@@ -38,6 +38,7 @@ namespace unre
 		void pauseThread();
 		void continueThread() ;
 		void terminateThread() ;
+		int initalConstBuffer(std::vector<void*>&constBuffer);
 #ifdef USE_REALSENSE
 	public:
 		void remove_rs_devices(const rs2::event_information& info);

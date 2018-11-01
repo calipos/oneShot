@@ -22,6 +22,15 @@ namespace unre
 		~JsonExplorer();
 		template<typename Dtype>
 		inline static Dtype getValue(const rapidjson::Value &node, const char*key);
+		////|    ["rgb" : <0,h,w,c,dtype,intrMap>] |
+		////|sn ["dep" : <1,h,w,c,dtype,intrMap>] |
+		////|    ["inf"   : <2,h,w,c,dtype,intrMap>] |
+		////|vvvvvvvvvvvvvvvvvvvvv|
+		////|sn ["rgb" : <3,h,w,c,dtype,intrMap>] |
+		////|vvvvvvvvvvvvvvvvvvvvv|
+		////|sn ["dep" : <4,h,w,c,dtype,intrMap>] |
+		////|     ["inf" : <5,h,w,c,dtype,intrMap>]  |
+		////|           ...               |
 		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& getSensorAssignmentInfo();
 		const std::vector<std::tuple<std::string,std::string>> & getExtraConfigFilPath();
 	private:
@@ -31,9 +40,9 @@ namespace unre
 		////|    ["rgb" : <0,h,w,c,dtype,intrMap>] |
 		////|sn ["dep" : <1,h,w,c,dtype,intrMap>] |
 		////|    ["inf"   : <2,h,w,c,dtype,intrMap>] |
-		////|=====================|
+		////|vvvvvvvvvvvvvvvvvvvvv|
 		////|sn ["rgb" : <3,h,w,c,dtype,intrMap>] |
-		////|=====================|
+		////|vvvvvvvvvvvvvvvvvvvvv|
 		////|sn ["dep" : <4,h,w,c,dtype,intrMap>] |
 		////|     ["inf" : <5,h,w,c,dtype,intrMap>]  |
 		////|           ...               |

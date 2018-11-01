@@ -51,8 +51,10 @@ namespace unre
 		dev_e->init();
 		dev_e->run();
 		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
+		constBuffer.resize(exactStreamCnt);
 		for (auto&item : bufferVecP)  item = Buffer();
-		dev_e->pushStream(bufferVecP);
+		dev_e->initalConstBuffer(constBuffer);
+		dev_e->pushStream(bufferVecP);//before push, the [bufferVecP] has be initalized in this function
 
 
 

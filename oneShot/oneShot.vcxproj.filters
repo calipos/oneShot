@@ -78,6 +78,9 @@
     <ClInclude Include="jsonExplorer.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="calibrations.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">

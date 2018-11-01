@@ -122,7 +122,23 @@ namespace unre
 		return ret;
 	}
 
-	
+	int DeviceExplorer::initalConstBuffer(std::vector<void*>&constBuffer)
+	{
+		CHECK(constBuffer.size()>0)<<"bufferVecP must be resize before!";
+		for (auto&dev : sensorInfo_)
+		{
+			for (auto&sensorInDev : std::get<1>(dev))
+			{
+				const std::string&sensorType = sensorInDev.first;
+				const int sensorIdx = std::get<0>(sensorInDev.second);
+				const int sensorHeight = std::get<1>(sensorInDev.second);
+				const int sensorWidth = std::get<2>(sensorInDev.second);
+				const int sensorChannels = std::get<3>(sensorInDev.second);
+				const int sensorIdx = std::get<4>(sensorInDev.second);
+			}
+		}
+		return 0;
+	}
 
 #ifdef USE_REALSENSE
 	void DeviceExplorer::remove_rs_devices(const rs2::event_information& info)

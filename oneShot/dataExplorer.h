@@ -19,7 +19,8 @@ namespace unre
 		int getBuffer_fortest();
 		const std::vector<Buffer>&getBufferVecP();
 	private:
-		std::vector<Buffer> bufferVecP;
+		std::vector<Buffer> bufferVecP;//this member wrap the ringbuffer,and the ring buffer never std::move
+		std::vector<void*> constBuffer = {0};//the ringbuffer will copy to there
 		JsonExplorer je;
 		DeviceExplorer* dev_e;
 		int exactStreamCnt = 0;
