@@ -97,8 +97,8 @@ namespace unre
 		head = other.head;
 		tail = other.tail;
 		height = other.height;
-		width_ = other.width_;
-		channels_ = other.channels_;
+		width = other.width;
+		channels = other.channels;
 		frameEleCnt = other.frameEleCnt;
 		data = new T[frameEleCnt*CAPACITY];
 		memcpy(data, other.data, height_*width_*channels_*CAPACITY * sizeof(T));
