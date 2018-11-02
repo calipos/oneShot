@@ -1,0 +1,14 @@
+[{
+	"friendName": "realsenseD415",
+	"serialNumber": "802212060443",
+	"sensorType": "rgb",
+	"height": 1080,
+	"width": 1920,
+	"channels": 3,
+	"Dtype": "uchar",
+	"cx":972.242432,
+	"cy":543.042908,
+	"fx":1394.96472,
+	"fy":1394.35864,	
+	"extraConfigPath": ""
+}]

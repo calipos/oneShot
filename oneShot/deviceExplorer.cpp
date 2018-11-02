@@ -2,7 +2,8 @@
 #include<thread>
 #include"stringOp.h"
 #include"deviceExplorer.h"
-#include"dataExplorer.h"
+//#include"dataExplorer.h"
+#include"jsonExplorer.h"
 #include"ringBuffer.h"
 
 #include "rapidjson/document.h"
@@ -28,12 +29,12 @@ namespace unre
 		const std::string&jsonFile,		
 		const std::vector<std::string>& serial_numbers,
 		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& sensorInfo,
-		const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath)
+		const std::vector<std::tuple<std::string, std::string>> & extraConfigFilPath)
 	{
 		jsonFile_ = jsonFile;
 		serial_numbers_ = serial_numbers;
 		sensorInfo_ = sensorInfo;
-		getExtraConfigFilPath_ = getExtraConfigFilPath;
+		extraConfigFilPath_ = extraConfigFilPath;
 	}
 	const std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>DeviceExplorer::getRunTime_intr()
 	{
@@ -134,7 +135,7 @@ namespace unre
 				const int sensorHeight = std::get<1>(sensorInDev.second);
 				const int sensorWidth = std::get<2>(sensorInDev.second);
 				const int sensorChannels = std::get<3>(sensorInDev.second);
-				const int sensorIdx = std::get<4>(sensorInDev.second);
+				const std::string dataType = std::get<4>(sensorInDev.second);
 			}
 		}
 		return 0;
@@ -304,9 +305,9 @@ namespace unre
 		rs_ctx.set_devices_changed_callback([&](rs2::event_information& info)
 		{
 			remove_rs_devices(info);
-			init_rs_devices(serial_numbers_, sensorInfo_, getExtraConfigFilPath_);
+			init_rs_devices(serial_numbers_, sensorInfo_, extraConfigFilPath_);
 		});
-		init_rs_devices(serial_numbers_, sensorInfo_, getExtraConfigFilPath_);
+		init_rs_devices(serial_numbers_, sensorInfo_, extraConfigFilPath_);
 	}
 	void DeviceExplorer::runRS()
 	{

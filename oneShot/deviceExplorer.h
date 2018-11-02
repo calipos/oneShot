@@ -210,7 +210,7 @@ namespace unre
 		std::string jsonFile_;//this file is the init file, that is useful for modifying the intriParam
 		std::vector<std::string> serial_numbers_;
 		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorInfo_;
-		std::vector<std::tuple<std::string, std::string>>  getExtraConfigFilPath_;
+		std::vector<std::tuple<std::string, std::string>>  extraConfigFilPath_;
 		std::mutex _mutex;
 		std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>runTime_intr;
 		bool isDevicesInit{ false };
