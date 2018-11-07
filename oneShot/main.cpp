@@ -15,9 +15,10 @@
 
 extern int TEST_thread_pauseContinue();
 extern int TEST_dataExplorer();
+extern int TEST_calib();
 int main()
 {
-	TEST_dataExplorer();
+	TEST_calib();
 	system("pause");
 	return 0;
 }

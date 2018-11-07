@@ -57,13 +57,13 @@ namespace unre
 		void push(const T*itemPtr);
 
 		// pops an item from FrameRingBuffer head
-		T* pop();
+		int pop(void*mem);
 
 		// try to push an item to FrameRingBuffer tail
 		bool try_and_push(const T* itemPtr);
 
 		// try to pop and item from FrameRingBuffer head
-		T* try_and_pop();
+		int try_and_pop(void*mem);
 
 		bool full();
 		bool empty();
@@ -84,7 +84,7 @@ namespace unre
 	FrameRingBuffer< T >::FrameRingBuffer(const int height_, const int width_, const int channels_) :
 		CAPACITY(MAX_QUEUE_SIZE), height(height_), width(width_), channels(channels_), cnt(0), head(0), tail(0)
 	{
-		frameEleCnt = height_*width_*channels_;
+		frameEleCnt = height_*width_*channels_*sizeof(T);
 		data = new T[frameEleCnt*CAPACITY];
 	}
 
@@ -119,12 +119,17 @@ namespace unre
 	}
 
 	template < typename T >
-	T* FrameRingBuffer< T >::pop()
+	int FrameRingBuffer< T >::pop(void*mem)
 	{
-		thread_local T* ptr;
-		while ((ptr = try_and_pop()) == nullptr)
-			;
-		return ptr;
+		thread_local int ret=-1;
+		while (ret = try_and_pop(mem))
+		{
+			if (ret==0)
+			{
+				break;
+			}
+		}			
+		return 0;
 	}
 
 	template < typename T >
@@ -134,7 +139,7 @@ namespace unre
 		if (cnt == CAPACITY)
 			return false;    // full
 		++cnt;
-		memcpy(data + frameEleCnt*tail, itemPtr, frameEleCnt*sizeof(T));
+		memcpy((char*)data + frameEleCnt * tail, (void*)itemPtr, frameEleCnt);
 		tail++;
 		if (tail == CAPACITY)
 			tail -= CAPACITY;
@@ -142,17 +147,18 @@ namespace unre
 	}
 
 	template < typename T >
-	T* FrameRingBuffer< T >::try_and_pop()
+	int FrameRingBuffer< T >::try_and_pop(void*mem)
 	{
 		std::lock_guard< spinlock > lg(lock);
 		if (cnt == 0)
-			return nullptr;    // empty
+			return -1;    // empty
 		--cnt;
 		unsigned idx = head;
 		++head;
 		if (head == CAPACITY)
 			head -= CAPACITY;
-		return data + frameEleCnt*idx;
+		memcpy(mem, data + frameEleCnt * idx, frameEleCnt);
+		return 0;
 	}
 
 	template < typename T >
