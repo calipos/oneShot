@@ -84,7 +84,7 @@ namespace unre
 	FrameRingBuffer< T >::FrameRingBuffer(const int height_, const int width_, const int channels_) :
 		CAPACITY(MAX_QUEUE_SIZE), height(height_), width(width_), channels(channels_), cnt(0), head(0), tail(0)
 	{
-		frameEleCnt = height_*width_*channels_*sizeof(T);
+		frameEleCnt = height_*width_*channels_;
 		data = new T[frameEleCnt*CAPACITY];
 	}
 
@@ -139,7 +139,7 @@ namespace unre
 		if (cnt == CAPACITY)
 			return false;    // full
 		++cnt;
-		memcpy((char*)data + frameEleCnt * tail, (void*)itemPtr, frameEleCnt);
+		memcpy((void*)(data + frameEleCnt * tail), (void*)itemPtr, frameEleCnt * sizeof(T));
 		tail++;
 		if (tail == CAPACITY)
 			tail -= CAPACITY;
@@ -157,7 +157,7 @@ namespace unre
 		++head;
 		if (head == CAPACITY)
 			head -= CAPACITY;
-		memcpy(mem, data + frameEleCnt * idx, frameEleCnt);
+		memcpy(mem, (void*)(data + frameEleCnt * idx), frameEleCnt * sizeof(T));
 		return 0;
 	}
 
