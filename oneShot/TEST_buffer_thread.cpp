@@ -64,8 +64,7 @@ void pop_data(unre::FrameRingBuffer<uchar>*buffer)
 		while (!buffer->empty())
 		{
 			cv::Mat img = cv::Mat::ones(400, 300, CV_8UC3);
-			uchar*poppedBufferData = buffer->pop();
-			memcpy(img.data, poppedBufferData, 400 * 300 * 3 * sizeof(uchar));
+			buffer->pop(img.data);			
 			std::cout << (int)img.data[0] << "popped" << std::endl;
 		}
 	}

@@ -164,7 +164,7 @@ namespace unre
 		return *this;
 	}
 
-	const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >&
+	const std::vector<std::tuple<std::string, oneDevMap> >&
 		JsonExplorer::getSensorAssignmentInfo()
 	{
 		return sensorAssignmentInfo;

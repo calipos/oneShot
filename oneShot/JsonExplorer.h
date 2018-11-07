@@ -11,7 +11,9 @@
 
 namespace unre
 {
-
+	//streamIdx, h, w, c, dtype, intrMap
+	using oneSensorInfo = std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> >;
+	using oneDevMap = std::unordered_map<std::string, oneSensorInfo>;
 	class JsonExplorer
 	{
 	public:
@@ -31,7 +33,7 @@ namespace unre
 		////|sn ["dep" : <4,h,w,c,dtype,intrMap>] |
 		////|     ["inf" : <5,h,w,c,dtype,intrMap>]  |
 		////|           ...               |
-		const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& getSensorAssignmentInfo();
+		const std::vector<std::tuple<std::string, oneDevMap> >& getSensorAssignmentInfo();
 		const std::vector<std::tuple<std::string,std::string>> & getExtraConfigFilPath();
 	private:
 		rapidjson::Document docRoot;
@@ -46,7 +48,7 @@ namespace unre
 		////|sn ["dep" : <4,h,w,c,dtype,intrMap>] |
 		////|     ["inf" : <5,h,w,c,dtype,intrMap>]  |
 		////|           ...               |
-		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorAssignmentInfo;
+		std::vector<std::tuple<std::string, oneDevMap> > sensorAssignmentInfo;
 		std::vector<std::tuple<std::string, std::string>> extraConfigFilPath;
 	};
 }

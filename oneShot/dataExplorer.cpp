@@ -53,7 +53,7 @@ namespace unre
 		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
 		constBuffer.resize(exactStreamCnt);
 		for (auto&item : bufferVecP)  item = Buffer();
-		dev_e->initalConstBuffer(constBuffer);
+		//dev_e->initalConstBuffer(constBuffer);
 		dev_e->pushStream(bufferVecP);//before push, the [bufferVecP] has be initalized in this function
 
 
@@ -67,7 +67,7 @@ namespace unre
 
 	int DataExplorer::getBuffer_fortest()
 	{
-		for (auto&item : bufferVecP)  CHECK(item.data) << "null data is disallowed!";		
+		for (auto&item : bufferVecP)  CHECK(item.data) << "null data is disallowed!";
 		int height1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->height;
 		int width1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->width;
 		int channels1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->channels;
@@ -108,25 +108,16 @@ namespace unre
 #endif
 		while (true)
 		{
-			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop();
-			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop();
-			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop();
-			auto xxx2 = ((FrameRingBuffer<unsigned char>*)bufferVecP[3].data)->pop();
-			auto yyy2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[4].data)->pop();
-			auto zzz2 = ((FrameRingBuffer<unsigned char>*)bufferVecP[5].data)->pop();
-			auto xxx3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[6].data)->pop();
-			auto yyy3 = ((FrameRingBuffer<unsigned short>*)bufferVecP[7].data)->pop();
-			auto zzz3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[8].data)->pop();
+			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
+			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
+			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);
+			auto xxx2 = ((FrameRingBuffer<unsigned char>*)bufferVecP[3].data)->pop(show4.data);
+			auto yyy2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[4].data)->pop(show5.data);
+			auto zzz2 = ((FrameRingBuffer<unsigned char>*)bufferVecP[5].data)->pop(show6.data);
+			auto xxx3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[6].data)->pop(show7.data);
+			auto yyy3 = ((FrameRingBuffer<unsigned short>*)bufferVecP[7].data)->pop(show8.data);
+			auto zzz3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[8].data)->pop(show9.data);
 #ifdef OPENCV_SHOW
-			memcpy(show1.data, xxx, height1*width1*channels1 * sizeof(unsigned char));
-			memcpy(show2.data, yyy, height2*width2*channels2 * sizeof(unsigned short));
-			memcpy(show3.data, zzz, height3*width3*channels3 * sizeof(unsigned char));
-			memcpy(show4.data, xxx2, height4*width4*channels4 * sizeof(unsigned char));
-			memcpy(show5.data, yyy2, height5*width5*channels5 * sizeof(unsigned short));
-			memcpy(show6.data, zzz2, height6*width6*channels6 * sizeof(unsigned char));
-			memcpy(show7.data, xxx3, height7*width7*channels7 * sizeof(unsigned char));
-			memcpy(show8.data, yyy3, height8*width8*channels8 * sizeof(unsigned short));
-			memcpy(show9.data, zzz3, height9*width9*channels9 * sizeof(unsigned char));
 			cv::imshow("1", show1);
 			cv::imshow("2", show2);
 			cv::imshow("3", show3);
@@ -137,7 +128,58 @@ namespace unre
 			cv::imshow("8", show8);
 			cv::imshow("9", show9);
 			int key = cv::waitKey(12);
-			if (key =='a')
+			if (key == 'a')
+			{
+				dev_e->pauseThread();
+				for (size_t i = 0; i < 10; i++)
+				{
+					std::this_thread::sleep_for(std::chrono::seconds(1));
+					LOG(INFO) << "WAIT 1s";
+
+				}
+				dev_e->continueThread();
+			}
+			else if (key == 'q')
+			{
+				dev_e->terminateThread();
+				cv::destroyAllWindows();
+				break;
+			}
+#endif		
+		}
+		return 0;
+	}
+
+	int DataExplorer::getBuffer_fortest3()
+	{
+		for (auto&item : bufferVecP)  CHECK(item.data) << "null data is disallowed!";
+		int height1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->height;
+		int width1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->width;
+		int channels1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->channels;
+		int height2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->height;
+		int width2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->width;
+		int channels2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->channels;
+		int height3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->height;
+		int width3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->width;
+		int channels3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->channels;
+#ifdef OPENCV_SHOW
+		cv::Mat show1 = cv::Mat(height1, width1, channels1 == 1 ? CV_8UC1 : CV_8UC3);
+		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
+		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);		
+#endif
+		while (true)
+		{
+			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
+			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
+			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);
+			
+#ifdef OPENCV_SHOW
+			cv::imshow("1", show1);
+			cv::imshow("2", show2);
+			cv::imshow("3", show3);
+			
+			int key = cv::waitKey(12);
+			if (key == 'a')
 			{
 				dev_e->pauseThread();
 				for (size_t i = 0; i < 10; i++)
@@ -162,5 +204,10 @@ namespace unre
 	const std::vector<Buffer>&DataExplorer::getBufferVecP()
 	{
 		return bufferVecP;
+	}
+
+	const std::vector<std::tuple<std::string, oneDevMap> >&DataExplorer::getStreamInfo()
+	{
+		return je.getSensorAssignmentInfo();
 	}
 }
