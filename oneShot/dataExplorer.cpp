@@ -210,4 +210,132 @@ namespace unre
 	{
 		return je.getSensorAssignmentInfo();
 	}
+
+	int DataExplorer::initMatVect(std::vector<cv::Mat*>&imgs)
+	{
+		imgs.clear();		
+		imgs.resize(exactStreamCnt);
+		for (auto&dev : je.getSensorAssignmentInfo())
+		{
+			const std::string&sn = std::get<0>(dev);
+			const unre::oneDevMap&sensors = std::get<1>(dev);
+			for (auto&sensor : sensors)
+			{
+				const std::string&sensorType = std::get<0>(sensor);
+				const int&streamIdx = std::get<0>(std::get<1>(sensor));
+				const int&height = std::get<1>(std::get<1>(sensor));
+				const int&width = std::get<2>(std::get<1>(sensor));
+				const int&channels = std::get<3>(std::get<1>(sensor));
+				const std::string&dtype = std::get<4>(std::get<1>(sensor));
+				auto&intrMap = std::get<5>(std::get<1>(sensor));
+
+				if (sensorType.compare("rgb") == 0)
+				{
+					if (dtype.compare("uchar") == 0 && channels == 3)
+					{
+						if (imgs[streamIdx]!=0)
+						{
+							imgs[streamIdx]->release();
+						}
+						imgs[streamIdx] =new cv::Mat(height, width, CV_8UC3);
+					}
+					else
+					{
+						LOG(FATAL) << "NOT SUPPORT TYPE";
+					}
+				}
+				else if (sensorType.compare("depth") == 0)
+				{
+					if (dtype.compare("ushort") == 0 && channels == 1)
+					{
+						if (imgs[streamIdx] != 0)
+						{
+							imgs[streamIdx]->release();
+						}
+						imgs[streamIdx] = new cv::Mat(height, width, CV_16UC1);
+					}
+					else
+					{
+						LOG(FATAL) << "NOT SUPPORT TYPE";
+					}
+				}
+				else if (sensorType.compare("infred") == 0)
+				{
+					if (dtype.compare("uchar") == 0 && channels == 1)
+					{
+						if (imgs[streamIdx] != 0)
+						{
+							imgs[streamIdx]->release();
+						}
+						imgs[streamIdx] = new cv::Mat(height, width, CV_8UC1);
+					}
+					else
+					{
+						LOG(FATAL) << "NOT SUPPORT TYPE";
+					}
+				}
+
+			}
+		}
+
+		return 0;
+	}
+
+	int DataExplorer::pop2Mats(std::vector<cv::Mat*>&imgs)
+	{
+		CHECK(imgs.size()!=0);
+		
+		for (auto&dev : je.getSensorAssignmentInfo())
+		{
+			const std::string&sn = std::get<0>(dev);
+			const unre::oneDevMap&sensors = std::get<1>(dev);
+			for (auto&sensor : sensors)
+			{
+				const std::string&sensorType = std::get<0>(sensor);
+				const int&streamIdx = std::get<0>(std::get<1>(sensor));
+				const int&height = std::get<1>(std::get<1>(sensor));
+				const int&width = std::get<2>(std::get<1>(sensor));
+				const int&channels = std::get<3>(std::get<1>(sensor));
+				const std::string&dtype = std::get<4>(std::get<1>(sensor));
+				auto&intrMap = std::get<5>(std::get<1>(sensor));
+
+				if (sensorType.compare("rgb") == 0)
+				{
+					if (dtype.compare("uchar") == 0 && channels == 3)
+					{
+						((unre::FrameRingBuffer<unsigned char>*)bufferVecP[streamIdx].data)->pop(imgs[streamIdx]->data);
+					}
+					else
+					{
+						LOG(FATAL) << "NOT SUPPORT TYPE";
+					}
+				}
+				else if (sensorType.compare("depth") == 0)
+				{
+					if (dtype.compare("ushort") == 0 && channels == 1)
+					{
+						((unre::FrameRingBuffer<unsigned short>*)bufferVecP[streamIdx].data)->pop(imgs[streamIdx]->data);
+					}
+					else
+					{
+						LOG(FATAL) << "NOT SUPPORT TYPE";
+					}
+				}
+				else if (sensorType.compare("infred") == 0)
+				{
+					if (dtype.compare("uchar") == 0 && channels == 1)
+					{
+						((unre::FrameRingBuffer<unsigned char>*)bufferVecP[streamIdx].data)->pop(imgs[streamIdx]->data);
+					}
+					else
+					{
+						LOG(FATAL) << "NOT SUPPORT TYPE";
+					}
+				}
+
+			}
+		}
+
+		return 0;
+	}
 }

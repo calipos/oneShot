@@ -452,16 +452,31 @@ namespace unre
 			}
 			
 			//TODO:not elegent
-			if (bufferIdx[0] >= 0&& bufferIdx[1] >= 0&&bufferIdx[2] >= 0)
+			if (bufferIdx[0] >= 0&& bufferIdx[1] >= 0&&bufferIdx[2] >= 0 
+				&& bufferVecP[bufferIdx[0]].Dtype.compare("uchar") == 0
+				&& bufferVecP[bufferIdx[1]].Dtype.compare("ushort") == 0
+				&& bufferVecP[bufferIdx[2]].Dtype.compare("uchar") == 0)
 			{				
-				threadSet.emplace_back(std::thread(&DeviceExplorer::rs_pushStream_3<unsigned char, unsigned short, unsigned char>, this,p, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, this));
-				
-				//rs_pushStream_3(p, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[2]], this);
+				threadSet.emplace_back(std::thread(
+					&DeviceExplorer::rs_pushStream_3<unsigned char, unsigned short, unsigned char>, 
+					this,
+					p, 
+					(FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[0]].data, 
+					(FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, 
+					(FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, 
+					this));
 			}
-			else if (bufferIdx[0] < 0 && bufferIdx[1] >= 0 && bufferIdx[2] >= 0)
+			else if (bufferIdx[0] < 0 && bufferIdx[1] >= 0 && bufferIdx[2] >= 0
+				&& bufferVecP[bufferIdx[1]].Dtype.compare("ushort") == 0
+				&& bufferVecP[bufferIdx[2]].Dtype.compare("uchar") == 0)
 			{
-				threadSet.emplace_back(std::thread(&DeviceExplorer::rs_pushStream_2<unsigned short, unsigned char>, this, p, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, (FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, this,1,2));
-				//rs_pushStream_2(p, (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], (FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]], this, 1, 2);
+				threadSet.emplace_back(std::thread(
+					&DeviceExplorer::rs_pushStream_2<unsigned short, unsigned char>, 
+					this, 
+					p, 
+					(FrameRingBuffer<unsigned short>*)bufferVecP[bufferIdx[1]].data, 
+					(FrameRingBuffer<unsigned char>*)bufferVecP[bufferIdx[2]].data, 
+					this,1,2));
 			}
 			else
 			{
