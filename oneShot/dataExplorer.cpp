@@ -415,6 +415,15 @@ namespace unre
 			for (size_t i = 0; i < imgs.size(); i++)
 			{
 				cv::Mat imageGray;
+				if (imgs[i]->type() == CV_16UC1)
+				{
+					continue;//depth no need calibration, rgb and infred need
+					double min_, max_;
+					cv::minMaxLoc(imageGray, &min_, &max_, NULL, NULL);;
+					imageGray.convertTo(imageGray, CV_32FC1);
+					imageGray = (imageGray - min_) / (max_ - min_)*255.;
+					imageGray.convertTo(imageGray, CV_8UC1);
+				}
 				if (imgs[i]->channels() == 3)
 				{
 					cvtColor(*imgs[i], imageGray, CV_RGB2GRAY);
@@ -427,15 +436,7 @@ namespace unre
 				{
 					LOG(FATAL) << "CALIB TYPE ERR";
 				}
-				if (imageGray.type() == CV_16UC1)
-				{
-					continue;//depth no need calibration, rgb and infred need
-					double min_, max_;
-					cv::minMaxLoc(imageGray, &min_, &max_, NULL, NULL);;
-					imageGray.convertTo(imageGray, CV_32FC1);
-					imageGray = (imageGray - min_) / (max_ - min_)*255.;
-					imageGray.convertTo(imageGray, CV_8UC1);
-				}
+				
 				std::vector<cv::Point2f> srcCandidateCorners;
 				imshow("123", *imgs[i]);
 				cv::waitKey(1);
