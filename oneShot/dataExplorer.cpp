@@ -45,9 +45,8 @@ namespace unre
 		});
 		exactStreamCnt = tmp_exactStreamCnt;
 		LOG(INFO) << SensorsInfo.size() << " devices are required.";
-
-
-		dev_e = new DeviceExplorer(theInitFile,usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
+		
+		dev_e = new DeviceExplorer(theInitFile, usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
 		dev_e->init();
 		dev_e->run();
 		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
@@ -165,19 +164,19 @@ namespace unre
 #ifdef OPENCV_SHOW
 		cv::Mat show1 = cv::Mat(height1, width1, channels1 == 1 ? CV_8UC1 : CV_8UC3);
 		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
-		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);		
+		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);
 #endif
 		while (true)
 		{
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
 			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
 			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);
-			
+
 #ifdef OPENCV_SHOW
 			cv::imshow("1", show1);
 			cv::imshow("2", show2);
 			cv::imshow("3", show3);
-			
+
 			int key = cv::waitKey(12);
 			if (key == 'a')
 			{
@@ -213,7 +212,7 @@ namespace unre
 
 	int DataExplorer::initMatVect(std::vector<cv::Mat*>&imgs)
 	{
-		imgs.clear();		
+		imgs.clear();
 		imgs.resize(exactStreamCnt);
 		for (auto&dev : je.getSensorAssignmentInfo())
 		{
@@ -233,11 +232,11 @@ namespace unre
 				{
 					if (dtype.compare("uchar") == 0 && channels == 3)
 					{
-						if (imgs[streamIdx]!=0)
+						if (imgs[streamIdx] != 0)
 						{
 							imgs[streamIdx]->release();
 						}
-						imgs[streamIdx] =new cv::Mat(height, width, CV_8UC3);
+						imgs[streamIdx] = new cv::Mat(height, width, CV_8UC3);
 					}
 					else
 					{
@@ -283,8 +282,8 @@ namespace unre
 
 	int DataExplorer::pop2Mats(std::vector<cv::Mat*>&imgs)
 	{
-		CHECK(imgs.size()!=0);
-		
+		CHECK(imgs.size() != 0);
+
 		for (auto&dev : je.getSensorAssignmentInfo())
 		{
 			const std::string&sn = std::get<0>(dev);
@@ -334,6 +333,105 @@ namespace unre
 				}
 
 			}
+		}
+
+		return 0;
+	}
+
+	int DataExplorer::calibAllStream()
+	{
+		if (!FileOP::FileExist("calib.json"))
+		{
+			LOG(ERROR) << "the calib.json file not exist! cannot get the chessborad parameters!";
+			return UNRE_CALIB_FILE_ERROR;
+		}
+		rapidjson::Document calibDocRoot;
+		calibDocRoot.Parse<0>(unre::StringOP::parseJsonFile2str("calib.json").c_str());
+		cv::Size2f chessUnitSize;
+		if (calibDocRoot.HasMember("chessUnitSize"))
+		{
+			float this_value = calibDocRoot["chessUnitSize"].GetFloat();
+			chessUnitSize = cv::Size2f(this_value, this_value);
+		}
+		else if (calibDocRoot.HasMember("chessUnitSize_h") && calibDocRoot.HasMember("chessUnitSize_w"))
+		{
+			float this_value1 = calibDocRoot["chessUnitSize_w"].GetFloat();
+			float this_value2 = calibDocRoot["chessUnitSize_h"].GetFloat();
+			chessUnitSize = cv::Size2f(this_value1, this_value2);
+		}
+		else{
+			LOG(ERROR) << "important parameter missing!!";
+			return UNRE_CALIB_FILE_ERROR;
+		}
+		cv::Size chessBoradSize;
+		if (calibDocRoot.HasMember("chessBoard_h") && calibDocRoot.HasMember("chessBoard_w"))
+		{
+			float this_value1 = calibDocRoot["chessBoard_w"].GetFloat();
+			float this_value2 = calibDocRoot["chessBoard_h"].GetFloat();
+			chessBoradSize = cv::Size2f(this_value1, this_value2);
+		}
+		else {
+			LOG(ERROR) << "important parameter missing!!";
+			return UNRE_CALIB_FILE_ERROR;
+		}
+		
+		std::vector<cv::Point3f> true3DPointSet;
+		for (int i = 0; i < chessBoradSize.height; i++)
+		{
+			for (int j = 0; j < chessBoradSize.width; j++)
+			{
+				cv::Point3f tempPoint;
+				tempPoint.x = j * chessUnitSize.width;
+				tempPoint.y = i * chessUnitSize.height;
+				tempPoint.z = 0;
+				true3DPointSet.push_back(tempPoint);
+			}
+		}
+
+		std::vector<cv::Mat*> imgs;
+		initMatVect(imgs);
+		pop2Mats(imgs);
+		for (size_t i = 0; i < imgs.size(); i++)
+		{
+			cv::Mat imageGray;
+			if (imgs[i]->channels() == 3)
+			{
+				cvtColor(*imgs[i], imageGray, CV_RGB2GRAY);
+			}
+			else if (imgs[i]->channels() == 1)
+			{
+				imageGray = imgs[i]->clone();
+			}
+			else
+			{
+				LOG(FATAL) << "CALIB TYPE ERR";
+			}
+			if (imageGray.type() == CV_16UC1)
+			{
+				double min_, max_;
+				cv::minMaxLoc(imageGray, &min_, &max_, NULL, NULL);;
+				imageGray.convertTo(imageGray, CV_32FC1);
+				imageGray = (imageGray - min_) / (max_ - min_)*255.;
+				imageGray.convertTo(imageGray, CV_8UC1);
+			}
+			std::vector<cv::Point2f> srcCandidateCorners;
+			bool patternfound = cv::findChessboardCorners(imageGray, cv::Size(6, 9), srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
+			if (patternfound)
+			{
+				cv::cornerSubPix(imageGray, srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+				cv::Mat intr = cv::Mat::zeros(3, 3, CV_32FC1);
+				intr.ptr<float>(0)[0] = 640;
+				intr.ptr<float>(1)[1] = 640;
+				intr.ptr<float>(0)[2] = 320;
+				intr.ptr<float>(1)[2] = 280;
+				intr.ptr<float>(2)[2] = 1.;
+			}
+			else
+			{
+				std::cout << "Detect Failed.\n";
+			}
+			imshow("123", *imgs[i]);
+			cv::waitKey(0);
 		}
 
 		return 0;

@@ -63,9 +63,6 @@
     <ClInclude Include="ringBuffer.h">
       <Filter>头文件\utils\arch</Filter>
     </ClInclude>
-    <ClInclude Include="threadPool.h">
-      <Filter>头文件\utils\arch</Filter>
-    </ClInclude>
     <ClInclude Include="dataExplorer.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -80,6 +77,9 @@
     </ClInclude>
     <ClInclude Include="calibrations.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="threadPool.h">
+      <Filter>头文件\utils\arch</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
