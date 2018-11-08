@@ -50,12 +50,28 @@ namespace unre
 		dev_e->init();
 		dev_e->run();
 		je = JsonExplorer(theInitFile.c_str());//reload json,因为上一行dev_e->run()会把json文件更新到实际inrt
+		//std::unordered_map<int, cv::Mat*> stream2Intr;
+		//std::unordered_map<int, std::tuple<cv::Mat*, cv::Mat*>> stream2Extr;
+		for (auto&dev : je.getSensorAssignmentInfo())
+		{
+			for (auto&sensor : std::get<1>(dev))
+			{
+				const int& streamIdx = std::get<0>(sensor.second);
+				std::unordered_map<std::string, double> intrMap = std::get<5>(sensor.second);
+				stream2Intr[streamIdx] = new cv::Mat(3, 3, CV_64FC1);
+				stream2Intr[streamIdx]->ptr<double>(0)[0] = intrMap["fx"];
+				stream2Intr[streamIdx]->ptr<double>(1)[1] = intrMap["fy"];
+				stream2Intr[streamIdx]->ptr<double>(0)[2] = intrMap["cx"];
+				stream2Intr[streamIdx]->ptr<double>(1)[2] = intrMap["cy"];
+				stream2Intr[streamIdx]->ptr<double>(2)[2] = 1.;
+			}
+		}
 		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
 		constBuffer.resize(exactStreamCnt);
 		for (auto&item : bufferVecP)  item = Buffer();
 		//dev_e->initalConstBuffer(constBuffer);
 		dev_e->pushStream(bufferVecP);//before push, the [bufferVecP] has be initalized in this function
-
+		calibAllStream();
 
 
 	}
@@ -420,12 +436,16 @@ namespace unre
 			if (patternfound)
 			{
 				cv::cornerSubPix(imageGray, srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-				cv::Mat intr = cv::Mat::zeros(3, 3, CV_32FC1);
-				intr.ptr<float>(0)[0] = 640;
-				intr.ptr<float>(1)[1] = 640;
-				intr.ptr<float>(0)[2] = 320;
-				intr.ptr<float>(1)[2] = 280;
-				intr.ptr<float>(2)[2] = 1.;
+				cv::Mat intr = stream2Intr[i]->clone();
+				cv::Mat Rvect;
+				cv::Mat t;
+				cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
+				cv::Mat Rmetrix;
+				cv::Rodrigues(Rvect, Rmetrix);
+				std::get<0>(stream2Extr[i]) = new cv::Mat(3, 3, CV_64FC1);
+				std::get<1>(stream2Extr[i]) = new cv::Mat(3, 1, CV_64FC1);
+				Rmetrix.copyTo(*std::get<0>(stream2Extr[i]));
+				t.copyTo(*std::get<1>(stream2Extr[i]));
 			}
 			else
 			{

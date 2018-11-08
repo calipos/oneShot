@@ -21,7 +21,8 @@ namespace unre
 		const std::vector<Buffer>&getBufferVecP();
 		const std::vector<std::tuple<std::string, oneDevMap> >& getStreamInfo();
 		int calibAllStream();
-		
+		std::unordered_map<int, cv::Mat*> stream2Intr;
+		std::unordered_map<int, std::tuple<cv::Mat*, cv::Mat*>> stream2Extr;
 	private:
 		std::vector<Buffer> bufferVecP;//this member wrap the ringbuffer,and the ring buffer never std::move
 		std::vector<void*> constBuffer = {0};//the ringbuffer will copy to there
@@ -30,6 +31,7 @@ namespace unre
 		int exactStreamCnt = 0;
 		int initMatVect(std::vector<cv::Mat*>&imgs);
 		int pop2Mats(std::vector<cv::Mat*>&imgs);//initMatVect must be called before
+		
 	};
 }
 
