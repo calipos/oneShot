@@ -407,54 +407,63 @@ namespace unre
 
 		std::vector<cv::Mat*> imgs;
 		initMatVect(imgs);
-		pop2Mats(imgs);
-		for (size_t i = 0; i < imgs.size(); i++)
+		while (true)
 		{
-			cv::Mat imageGray;
-			if (imgs[i]->channels() == 3)
-			{
-				cvtColor(*imgs[i], imageGray, CV_RGB2GRAY);
-			}
-			else if (imgs[i]->channels() == 1)
-			{
-				imageGray = imgs[i]->clone();
-			}
-			else
-			{
-				LOG(FATAL) << "CALIB TYPE ERR";
-			}
-			if (imageGray.type() == CV_16UC1)
-			{
-				double min_, max_;
-				cv::minMaxLoc(imageGray, &min_, &max_, NULL, NULL);;
-				imageGray.convertTo(imageGray, CV_32FC1);
-				imageGray = (imageGray - min_) / (max_ - min_)*255.;
-				imageGray.convertTo(imageGray, CV_8UC1);
-			}
-			std::vector<cv::Point2f> srcCandidateCorners;
-			bool patternfound = cv::findChessboardCorners(imageGray, cv::Size(6, 9), srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
-			if (patternfound)
-			{
-				cv::cornerSubPix(imageGray, srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-				cv::Mat intr = stream2Intr[i]->clone();
-				cv::Mat Rvect;
-				cv::Mat t;
-				cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
-				cv::Mat Rmetrix;
-				cv::Rodrigues(Rvect, Rmetrix);
-				std::get<0>(stream2Extr[i]) = new cv::Mat(3, 3, CV_64FC1);
-				std::get<1>(stream2Extr[i]) = new cv::Mat(3, 1, CV_64FC1);
-				Rmetrix.copyTo(*std::get<0>(stream2Extr[i]));
-				t.copyTo(*std::get<1>(stream2Extr[i]));
-			}
-			else
-			{
-				std::cout << "Detect Failed.\n";
-			}
-			imshow("123", *imgs[i]);
-			cv::waitKey(0);
-		}
 
+
+			pop2Mats(imgs);
+			for (size_t i = 0; i < imgs.size(); i++)
+			{
+				cv::Mat imageGray;
+				if (imgs[i]->channels() == 3)
+				{
+					cvtColor(*imgs[i], imageGray, CV_RGB2GRAY);
+				}
+				else if (imgs[i]->channels() == 1)
+				{
+					imageGray = imgs[i]->clone();
+				}
+				else
+				{
+					LOG(FATAL) << "CALIB TYPE ERR";
+				}
+				if (imageGray.type() == CV_16UC1)
+				{
+					continue;//depth no need calibration, rgb and infred need
+					double min_, max_;
+					cv::minMaxLoc(imageGray, &min_, &max_, NULL, NULL);;
+					imageGray.convertTo(imageGray, CV_32FC1);
+					imageGray = (imageGray - min_) / (max_ - min_)*255.;
+					imageGray.convertTo(imageGray, CV_8UC1);
+				}
+				std::vector<cv::Point2f> srcCandidateCorners;
+				imshow("123", *imgs[i]);
+				cv::waitKey(1);
+				bool patternfound = cv::findChessboardCorners(imageGray, cv::Size(6, 9), srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
+				if (patternfound)
+				{
+					cv::cornerSubPix(imageGray, srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+					cv::Mat intr = stream2Intr[i]->clone();
+					cv::Mat Rvect;
+					cv::Mat t;
+					cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
+					cv::Mat Rmetrix;
+					cv::Rodrigues(Rvect, Rmetrix);
+					std::get<0>(stream2Extr[i]) = new cv::Mat(3, 3, CV_64FC1);
+					std::get<1>(stream2Extr[i]) = new cv::Mat(3, 1, CV_64FC1);
+					Rmetrix.copyTo(*std::get<0>(stream2Extr[i]));
+					t.copyTo(*std::get<1>(stream2Extr[i]));
+				}
+				else
+				{					
+					//continue;
+					//std::cout << "Detect Failed.\n";
+				}	
+			}
+			pop2Mats(imgs);//多弹几张图，避免队列的慢放，因为找内点已经够慢了
+			pop2Mats(imgs);//
+			pop2Mats(imgs);//
+		}
 		return 0;
 	}
 }
