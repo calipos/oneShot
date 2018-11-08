@@ -19,6 +19,7 @@ extern int TEST_calib();
 extern int TEST_calib2();
 int main()
 {
+	TEST_dataExplorer();
 	TEST_calib2();
 	system("pause");
 	return 0;

@@ -49,6 +49,7 @@ namespace unre
 		dev_e = new DeviceExplorer(theInitFile, usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
 		dev_e->init();
 		dev_e->run();
+		je = JsonExplorer(theInitFile.c_str());//reload json,因为上一行dev_e->run()会把json文件更新到实际inrt
 		bufferVecP.resize(exactStreamCnt);//必须相等，因为后边和遍历check和pop
 		constBuffer.resize(exactStreamCnt);
 		for (auto&item : bufferVecP)  item = Buffer();
