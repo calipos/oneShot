@@ -24,6 +24,40 @@ namespace unre
 	DeviceExplorer::DeviceExplorer()
 	{
 	}
+	DeviceExplorer::~DeviceExplorer()
+	{
+		bool isDevicesInit{ false };
+		bool isDevicesRunning{ false };
+		if (isDevicesInit==false && isDevicesRunning==true)
+		{
+			CHECK(false) << "illegal state!!!";
+		}
+		if (isDevicesInit == true && isDevicesRunning == true)
+		{
+			if (!doTerminate)
+			{
+				if (doPause)
+				{
+					doPause = false;
+				}
+			}
+#ifdef USE_REALSENSE
+			if (existRS)
+			{
+				stopRS();
+			}
+#endif
+#ifdef USE_VIRTUALCAMERA
+#endif
+			for (auto&thre : threadSet)
+			{
+				if (thre.joinable())
+				{
+					thre.join();
+				}				
+			}
+		}
+	}
 
 	DeviceExplorer::DeviceExplorer(
 		const std::string&jsonFile,		
@@ -380,6 +414,18 @@ namespace unre
 				}
 			}	
 		}
+	}
+	int DeviceExplorer::stopRS()
+	{
+		for (auto& dev_info : rsMap)
+		{
+			const std::string&name_sn = dev_info.first;
+			rs2::pipeline&p = std::get<0>(dev_info.second);
+			rs2::config&c = std::get<1>(dev_info.second);
+			rs2::pipeline_profile&profile = std::get<2>(dev_info.second);
+			p.stop();
+		}
+		return 0;
 	}
 	int DeviceExplorer::pushRsStream(std::vector<Buffer> &bufferVecP)
 	{

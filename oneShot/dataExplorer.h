@@ -13,9 +13,9 @@ namespace unre
 		DataExplorer() = delete;
 		DataExplorer(DataExplorer&de) = delete;
 		DataExplorer(DataExplorer&&de) = delete;
-		explicit DataExplorer(int streamNum = 9);
+		explicit DataExplorer(int streamNum = 9, bool doCalib=false);
 		int getExactStreamCnt();
-		~DataExplorer() {};
+		~DataExplorer() { delete dev_e; };
 		int getBuffer_fortest();
 		int getBuffer_fortest3();
 		const std::vector<Buffer>&getBufferVecP();
@@ -31,7 +31,7 @@ namespace unre
 		int exactStreamCnt = 0;
 		int initMatVect(std::vector<cv::Mat*>&imgs);
 		int pop2Mats(std::vector<cv::Mat*>&imgs);//initMatVect must be called before
-		
+		bool doCalib_{false};
 	};
 }
 

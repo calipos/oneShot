@@ -28,18 +28,39 @@ namespace unre
 	{
 	public:
 		DeviceExplorer();
-		DeviceExplorer(const std::string&jsonFile,const std::vector<std::string>& serial_numbers,
+		~DeviceExplorer();
+		DeviceExplorer(const std::string&jsonFile, const std::vector<std::string>& serial_numbers,
 			const std::vector<std::tuple<std::string, oneDevMap	> >& sensorInfo,
 			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath,
-			const bool&doCalib=false);
+			const bool&doCalib = false);
 		void init();
 		void run();
 		int pushStream(std::vector<Buffer> &bufferVecP);
 		const std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>getRunTime_intr();
 		void pauseThread();
-		void continueThread() ;
-		void terminateThread() ;
+		void continueThread();
+		void terminateThread();
 		int initalConstBuffer(std::vector<void*>&constBuffer);
+	private:
+		std::string jsonFile_;//this file is the init file, that is useful for modifying the intriParam
+		std::vector<std::string> serial_numbers_;
+		std::vector<std::tuple<std::string, oneDevMap	> > sensorInfo_;
+		std::vector<std::tuple<std::string, std::string>>  extraConfigFilPath_;
+		std::mutex _mutex;
+		std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>runTime_intr;
+		bool isDevicesInit{ false };
+		bool isDevicesRunning{ false };
+
+		std::atomic<bool> doPause = false; // 是否准备好
+		std::mutex cv_pause_mtx; // doPause的锁
+		std::condition_variable cv_pause; // doPause的条件变量.
+		std::mutex termin_mtx; //g_bThreadRun的锁
+		std::atomic<bool> doTerminate = false;
+
+		std::vector<std::thread> threadSet;
+		bool existRS = false;//是否需要用到RS
+		bool existVirtualCamera = false;//是否需要用到虚拟camera
+		bool doCalib_{ false };
 #ifdef USE_REALSENSE
 	public:
 		void remove_rs_devices(const rs2::event_information& info);
@@ -48,14 +69,15 @@ namespace unre
 			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath);
 		void initRS();
 		void runRS();
+		int stopRS();
 		int pushRsStream(std::vector<Buffer> &bufferVecP);
-		int checkRsIntriParamAndWriteBack(const std::string&jsonFile, const std::string&sn, const std::string&sensorType,const std::string&whichIntr,const double&param);//this action doing after running
-		
+		int checkRsIntriParamAndWriteBack(const std::string&jsonFile, const std::string&sn, const std::string&sensorType, const std::string&whichIntr, const double&param);//this action doing after running
+
 		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空//所以外部都要pop
 		template<typename T1, typename T2>
 		void rs_pushStream_2(rs2::pipeline&p, FrameRingBuffer<T1>*buffer1, FrameRingBuffer<T2>*buffer2, DeviceExplorer*current, int channel1, int channel2)
 		{
-			CHECK(channel1 == 1 && channel2 == 2)<<"For rs, when pushing 2 stream, they must be depth and infred!";
+			CHECK(channel1 == 1 && channel2 == 2) << "For rs, when pushing 2 stream, they must be depth and infred!";
 			while (1)
 			{
 				while (!(buffer1->full() || buffer2->full()))
@@ -121,7 +143,7 @@ namespace unre
 				}
 			}
 		}
-	private:		
+	private:
 		rs2::context rs_ctx;
 		std::unordered_map<std::string, std::tuple<rs2::pipeline, rs2::config, rs2::pipeline_profile, std::unordered_map<std::string, int>>> rsMap;
 #endif // USE_REALSENSE
@@ -207,26 +229,7 @@ namespace unre
 	private:
 		std::unordered_map<std::string, std::unordered_map<std::string, int>> virtualCameraMap;
 #endif // USE_VIRTUALCAMERA
-	private:
-		std::string jsonFile_;//this file is the init file, that is useful for modifying the intriParam
-		std::vector<std::string> serial_numbers_;
-		std::vector<std::tuple<std::string, oneDevMap	> > sensorInfo_;
-		std::vector<std::tuple<std::string, std::string>>  extraConfigFilPath_;
-		std::mutex _mutex;
-		std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>runTime_intr;
-		bool isDevicesInit{ false };
-		bool isDevicesRunning{ false };
 
-		std::atomic<bool> doPause = false; // 是否准备好
-		std::mutex cv_pause_mtx; // doPause的锁
-		std::condition_variable cv_pause; // doPause的条件变量.
-		std::mutex termin_mtx; //g_bThreadRun的锁
-		std::atomic<bool> doTerminate = false;
-
-		std::vector<std::thread> threadSet;
-		bool existRS = false;//是否需要用到RS
-		bool existVirtualCamera = false;//是否需要用到虚拟camera
-		bool doCalib_{false};
 	};
 
 }

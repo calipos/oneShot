@@ -12,8 +12,9 @@
 
 namespace unre
 {
-	DataExplorer::DataExplorer(int streamNum)
+	DataExplorer::DataExplorer(int streamNum,bool doCalib)
 	{
+		doCalib_ = doCalib;
 		std::string theInitFile;
 		if (FileOP::FileExist("config.json"))
 		{
@@ -46,7 +47,7 @@ namespace unre
 		exactStreamCnt = tmp_exactStreamCnt;
 		LOG(INFO) << SensorsInfo.size() << " devices are required.";
 		
-		dev_e = new DeviceExplorer(theInitFile, usedDeviceType, SensorsInfo, je.getExtraConfigFilPath());
+		dev_e = new DeviceExplorer(theInitFile, usedDeviceType, SensorsInfo, je.getExtraConfigFilPath(), doCalib_);
 		dev_e->init();
 		dev_e->run();
 		je = JsonExplorer(theInitFile.c_str());//reload json,因为上一行dev_e->run()会把json文件更新到实际inrt
@@ -71,7 +72,7 @@ namespace unre
 		for (auto&item : bufferVecP)  item = Buffer();
 		//dev_e->initalConstBuffer(constBuffer);
 		dev_e->pushStream(bufferVecP);//before push, the [bufferVecP] has be initalized in this function
-		calibAllStream();
+		//calibAllStream();
 
 
 	}
@@ -183,7 +184,8 @@ namespace unre
 		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
 		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);
 #endif
-		while (true)
+		int time__ = 500;
+		while (time__--)
 		{
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
 			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);

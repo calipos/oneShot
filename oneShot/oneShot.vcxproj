@@ -177,6 +177,7 @@
     <ClCompile Include="iofile.cpp" />
     <ClCompile Include="TEST_calib.cpp" />
     <ClCompile Include="TEST_dataExplorer.cpp" />
+    <ClCompile Include="TEST_dataExplorer_destroy.cpp" />
     <ClCompile Include="TEST_jsonExplorer.cpp" />
     <ClCompile Include="TEST_json_write_read.cpp" />
     <ClCompile Include="main.cpp" />
