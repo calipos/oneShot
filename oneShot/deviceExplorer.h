@@ -9,7 +9,7 @@
 
 #include "logg.h"
 #include "ringBuffer.h"
-
+#include "jsonExplorer.h"
 #ifdef USE_REALSENSE
 #include "librealsense2/rs.h"
 #include <librealsense2/rs_advanced_mode.hpp>
@@ -29,8 +29,9 @@ namespace unre
 	public:
 		DeviceExplorer();
 		DeviceExplorer(const std::string&jsonFile,const std::vector<std::string>& serial_numbers,
-			const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& sensorInfo,
-			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath);
+			const std::vector<std::tuple<std::string, oneDevMap	> >& sensorInfo,
+			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath,
+			const bool&doCalib=false);
 		void init();
 		void run();
 		int pushStream(std::vector<Buffer> &bufferVecP);
@@ -43,7 +44,7 @@ namespace unre
 	public:
 		void remove_rs_devices(const rs2::event_information& info);
 		void init_rs_devices(const std::vector<std::string>& serial_numbers,
-			const std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > >& sensorInfo,
+			const std::vector<std::tuple<std::string, oneDevMap	> >& sensorInfo,
 			const std::vector<std::tuple<std::string, std::string>> & getExtraConfigFilPath);
 		void initRS();
 		void runRS();
@@ -209,7 +210,7 @@ namespace unre
 	private:
 		std::string jsonFile_;//this file is the init file, that is useful for modifying the intriParam
 		std::vector<std::string> serial_numbers_;
-		std::vector<std::tuple<std::string, std::unordered_map<std::string, std::tuple<int, int, int, int, std::string, std::unordered_map<std::string, double> > > > > sensorInfo_;
+		std::vector<std::tuple<std::string, oneDevMap	> > sensorInfo_;
 		std::vector<std::tuple<std::string, std::string>>  extraConfigFilPath_;
 		std::mutex _mutex;
 		std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, double>>>runTime_intr;
@@ -225,6 +226,7 @@ namespace unre
 		std::vector<std::thread> threadSet;
 		bool existRS = false;//是否需要用到RS
 		bool existVirtualCamera = false;//是否需要用到虚拟camera
+		bool doCalib_{false};
 	};
 
 }
