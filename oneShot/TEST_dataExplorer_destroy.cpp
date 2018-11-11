@@ -1,3 +1,4 @@
+#ifdef COMPILE_TEST
 #include <atomic>
 #include <chrono>
 #include"logg.h"
@@ -5,24 +6,17 @@
 #include"threadPool.h"
 #include"dataExplorer.h"
 #include "stringOp.h"
+#include"jsonExplorer.h"
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 
 #include"opencv2/opencv.hpp"
-
-
-
-extern int TEST_thread_pauseContinue();
-extern int TEST_dataExplorer();
-//extern int TEST_calib();
-//extern int TEST_calib2();
-extern int TEST_dataExplorer_destroy();
-int main()
+int TEST_dataExplorer_destroy()
 {
-	TEST_dataExplorer_destroy();
-	//TEST_dataExplorer();
-	//TEST_calib2();
-	system("pause");
+	unre::DataExplorer de(3,true);
+	de.getBuffer_fortest3();
+	de.~DataExplorer();
 	return 0;
 }
+#endif

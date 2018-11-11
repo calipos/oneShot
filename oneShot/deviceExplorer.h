@@ -41,6 +41,7 @@ namespace unre
 		void continueThread();
 		void terminateThread();
 		int initalConstBuffer(std::vector<void*>&constBuffer);
+		std::vector<std::thread> threadSet;
 	private:
 		std::string jsonFile_;//this file is the init file, that is useful for modifying the intriParam
 		std::vector<std::string> serial_numbers_;
@@ -57,7 +58,7 @@ namespace unre
 		std::mutex termin_mtx; //g_bThreadRun的锁
 		std::atomic<bool> doTerminate = false;
 
-		std::vector<std::thread> threadSet;
+		
 		bool existRS = false;//是否需要用到RS
 		bool existVirtualCamera = false;//是否需要用到虚拟camera
 		bool doCalib_{ false };
@@ -105,6 +106,10 @@ namespace unre
 					buffer1->push(df_pt);
 					buffer2->push(if_pt);
 				}
+				if (current->doTerminate)
+				{
+					break;
+				}
 			}
 		}
 		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空
@@ -140,6 +145,10 @@ namespace unre
 					buffer0->push(cf_pt);
 					buffer1->push(df_pt);
 					buffer2->push(if_pt);
+				}
+				if (current->doTerminate)
+				{
+					break;
 				}
 			}
 		}

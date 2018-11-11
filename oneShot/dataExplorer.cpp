@@ -184,7 +184,7 @@ namespace unre
 		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
 		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);
 #endif
-		int time__ = 500;
+		int time__ = 50;
 		while (time__--)
 		{
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
@@ -212,6 +212,14 @@ namespace unre
 			{
 				dev_e->terminateThread();
 				cv::destroyAllWindows();
+				
+					for (auto&thre : dev_e->threadSet)
+					{
+						if (thre.joinable())
+						{
+							thre.join();
+						}
+					}
 				break;
 			}
 #endif		

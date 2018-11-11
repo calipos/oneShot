@@ -26,8 +26,6 @@ namespace unre
 	}
 	DeviceExplorer::~DeviceExplorer()
 	{
-		bool isDevicesInit{ false };
-		bool isDevicesRunning{ false };
 		if (isDevicesInit==false && isDevicesRunning==true)
 		{
 			CHECK(false) << "illegal state!!!";
@@ -38,7 +36,16 @@ namespace unre
 			{
 				if (doPause)
 				{
-					doPause = false;
+					continueThread();
+				}
+				cv::destroyAllWindows();
+				terminateThread();
+			}
+			for (auto&thre : threadSet)
+			{
+				if (thre.joinable())
+				{
+					thre.join();
 				}
 			}
 #ifdef USE_REALSENSE
@@ -49,13 +56,7 @@ namespace unre
 #endif
 #ifdef USE_VIRTUALCAMERA
 #endif
-			for (auto&thre : threadSet)
-			{
-				if (thre.joinable())
-				{
-					thre.join();
-				}				
-			}
+			
 		}
 	}
 
