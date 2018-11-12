@@ -181,6 +181,7 @@
     <ClCompile Include="TEST_jsonExplorer.cpp" />
     <ClCompile Include="TEST_json_write_read.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="TEST_objectDestroy.cpp" />
     <ClCompile Include="TEST_subThread_pause_continue.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

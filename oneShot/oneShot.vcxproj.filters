@@ -122,5 +122,8 @@
     <ClCompile Include="TEST_calib.cpp">
       <Filter>源文件\TEST</Filter>
     </ClCompile>
+    <ClCompile Include="TEST_objectDestroy.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

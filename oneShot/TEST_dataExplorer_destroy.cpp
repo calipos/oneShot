@@ -14,9 +14,17 @@
 #include"opencv2/opencv.hpp"
 int TEST_dataExplorer_destroy()
 {
-	unre::DataExplorer de(3,true);
-	de.getBuffer_fortest3();
-	de.~DataExplorer();
+	{
+		unre::DataExplorer de(3, true);
+		de.getBuffer_fortest3();
+		de.deleteDevice(); 
+	}
+	{
+		unre::DataExplorer de(3, false);
+		de.getBuffer_fortest3();
+		de.deleteDevice(); 
+	}
+
 	return 0;
 }
 #endif

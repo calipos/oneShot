@@ -194,6 +194,10 @@ namespace unre
 					buffer1->push((unsigned short*)dep_temp.data);
 					buffer2->push(inf_temp.data);
 				}
+				if (current->doTerminate)
+				{
+					break;
+				}
 			}
 		}
 		//下面的函数会开一个线程一直push，其中会对几个流都push，所以一旦有个流push卡住了，会导致整个线程空转，而其余流的数据也会很快取空
@@ -205,7 +209,6 @@ namespace unre
 			{
 				while (!(buffer0->full() || buffer1->full() || buffer2->full()))
 				{
-
 					{
 						std::unique_lock <std::mutex> lck(current->cv_pause_mtx);
 						while (current->doPause)
@@ -232,6 +235,10 @@ namespace unre
 					buffer0->push(color_temp.data);
 					buffer1->push((unsigned short*)dep_temp.data);
 					buffer2->push(inf_temp.data);
+				}
+				if (current->doTerminate)
+				{
+					break;
 				}
 			}
 		}

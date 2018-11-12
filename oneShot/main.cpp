@@ -18,8 +18,10 @@ extern int TEST_dataExplorer();
 //extern int TEST_calib();
 //extern int TEST_calib2();
 extern int TEST_dataExplorer_destroy();
+extern void TEST_ogjectDestroy();
 int main()
 {
+	//TEST_ogjectDestroy();
 	TEST_dataExplorer_destroy();
 	//TEST_dataExplorer();
 	//TEST_calib2();
