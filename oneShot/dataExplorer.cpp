@@ -340,7 +340,8 @@ namespace unre
 				{
 					if (dtype.compare("ushort") == 0 && channels == 1)
 					{
-						((unre::FrameRingBuffer<unsigned short>*)bufferVecP[streamIdx].data)->pop(imgs[streamIdx]->data);
+						//((unre::FrameRingBuffer<unsigned short>*)bufferVecP[streamIdx].data)->pop(imgs[streamIdx]->data);
+						((unre::FrameRingBuffer<unsigned short>*)bufferVecP[streamIdx].data)->pop();//depth neednt calib
 					}
 					else
 					{

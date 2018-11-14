@@ -57,13 +57,13 @@ namespace unre
 		void push(const T*itemPtr);
 
 		// pops an item from FrameRingBuffer head
-		int pop(void*mem);
+		int pop(void*mem = NULL);//if mem=NULL, it means pop nothing but the ringBuffer wheels
 
 		// try to push an item to FrameRingBuffer tail
 		bool try_and_push(const T* itemPtr);
 
 		// try to pop and item from FrameRingBuffer head
-		int try_and_pop(void*mem);
+		int try_and_pop(void*mem = NULL);//if mem=NULL, it means pop nothing but the ringBuffer wheels
 
 		bool full();
 		bool empty();
@@ -157,7 +157,10 @@ namespace unre
 		++head;
 		if (head == CAPACITY)
 			head -= CAPACITY;
-		memcpy(mem, (void*)(data + frameEleCnt * idx), frameEleCnt * sizeof(T));
+		if (mem!=NULL)
+		{
+			memcpy(mem, (void*)(data + frameEleCnt * idx), frameEleCnt * sizeof(T));
+		}
 		return 0;
 	}
 
