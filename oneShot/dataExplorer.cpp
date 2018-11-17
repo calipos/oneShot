@@ -368,6 +368,7 @@ namespace unre
 
 	int DataExplorer::calibAllStream()
 	{
+		CHECK(doCalib_)<<"not the calibration model!";
 		if (!FileOP::FileExist("calib.json"))
 		{
 			LOG(ERROR) << "the calib.json file not exist! cannot get the chessborad parameters!";
