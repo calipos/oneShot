@@ -64,6 +64,7 @@ namespace LOGG
 			return logStreamData;
 		}
 	private:
+		std::mutex logg_mtx;
 		std::stringstream logStreamData;
 	};
 }

@@ -1,7 +1,8 @@
 #include"logg.h"
-std::mutex logg_mtx;
+
 namespace LOGG
 {
+	
 	
 		logger::logger(const char*fileName, int lineIdx, int logLevel)
 		{

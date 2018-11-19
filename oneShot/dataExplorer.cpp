@@ -264,6 +264,7 @@ namespace unre
 							imgs[streamIdx]->release();
 						}
 						imgs[streamIdx] = new cv::Mat(height, width, CV_8UC3);
+						stream2Extr[streamIdx] = std::make_tuple(new cv::Mat(0, 0, CV_64FC1), new cv::Mat(0, 0, CV_64FC1));
 					}
 					else
 					{
@@ -419,10 +420,9 @@ namespace unre
 
 		std::vector<cv::Mat*> imgs;
 		initMatVect(imgs);
+		std::vector<cv::Mat> grayCalibImgs(imgs.size(),cv::Mat());
 		while (true)
 		{
-
-
 			pop2Mats(imgs);
 			for (size_t i = 0; i < imgs.size(); i++)
 			{
@@ -439,43 +439,113 @@ namespace unre
 				if (imgs[i]->channels() == 3)
 				{
 					cvtColor(*imgs[i], imageGray, CV_RGB2GRAY);
+					grayCalibImgs[i] = imageGray.clone();
 				}
 				else if (imgs[i]->channels() == 1)
 				{
 					imageGray = imgs[i]->clone();
+					grayCalibImgs[i] = imageGray.clone();
 				}
 				else
 				{
 					LOG(FATAL) << "CALIB TYPE ERR";
 				}
-				
-				std::vector<cv::Point2f> srcCandidateCorners;
-				imshow("123", *imgs[i]);
-				cv::waitKey(1);
-				bool patternfound = cv::findChessboardCorners(imageGray, cv::Size(6, 9), srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
-				if (patternfound)
-				{
-					cv::cornerSubPix(imageGray, srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-					cv::Mat intr = stream2Intr[i]->clone();
-					cv::Mat Rvect;
-					cv::Mat t;
-					cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
-					cv::Mat Rmetrix;
-					cv::Rodrigues(Rvect, Rmetrix);
-					std::get<0>(stream2Extr[i]) = new cv::Mat(3, 3, CV_64FC1);
-					std::get<1>(stream2Extr[i]) = new cv::Mat(3, 1, CV_64FC1);
-					Rmetrix.copyTo(*std::get<0>(stream2Extr[i]));
-					t.copyTo(*std::get<1>(stream2Extr[i]));
-				}
-				else
-				{					
-					//continue;
-					//std::cout << "Detect Failed.\n";
-				}	
+				imshow("streamIdx=" + std::to_string(i), imageGray);
 			}
-			pop2Mats(imgs);//多弹几张图，避免队列的慢放，因为找内点已经够慢了
-			pop2Mats(imgs);//
-			pop2Mats(imgs);//
+			if (cv::waitKey(1)=='o')
+			{
+				bool calibDone = true;
+				for (size_t i = 0; i < grayCalibImgs.size(); i++)
+				{
+					if (grayCalibImgs[i].cols<1)
+					{
+						continue;
+					}
+					std::vector<cv::Point2f> srcCandidateCorners;
+					bool patternfound = cv::findChessboardCorners(grayCalibImgs[i], chessBoradSize, srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
+					if (patternfound)
+					{
+						cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+						cv::Mat intr = stream2Intr[i]->clone();
+						cv::Mat Rvect;
+						cv::Mat t;
+						cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
+						cv::Mat Rmetrix;
+						cv::Rodrigues(Rvect, Rmetrix);						
+						Rmetrix.copyTo(*std::get<0>(stream2Extr[i]));
+						t.copyTo(*std::get<1>(stream2Extr[i]));
+					}
+					else
+					{
+						calibDone = false;
+						break;
+					}
+				}			
+				if (calibDone)
+				{
+					break;
+				}
+			}
+			else if (cv::waitKey(1) == 'c')
+			{
+				break;//for test
+			}
+			else
+			{
+				pop2Mats(imgs);//多弹几张图，避免队列的慢放，因为找内点已经够慢了
+			}	
+		}
+		{
+			//
+			int x = 1 + 1;
+			rapidjson::Document doc;
+			doc.SetObject();
+			rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
+
+			doc.AddMember("MsgSendFlag", 1, allocator);
+			doc.AddMember("MsgErrorReason", "IDorpassworderror", allocator);
+			doc.AddMember("MsgRef", 1, allocator);
+
+			rapidjson::Value info_array(rapidjson::kArrayType);
+
+			for (int i = 0; i < 2; i++) {
+				rapidjson::Value info_object(rapidjson::kObjectType);
+				info_object.SetObject();
+				info_object.AddMember("lots", 10 + i, allocator);
+				info_object.AddMember("order_algorithm", "01", allocator);
+
+				rapidjson::Value R_array(rapidjson::kArrayType);
+				info_object.AddMember("R_rows", 3, allocator);
+				info_object.AddMember("R_cols", 3, allocator);
+				for (int r = 0; r < 3; r++) {
+					for (int c = 0; c < 3; c++) {
+						R_array.PushBack(r*10+c, allocator);
+					}
+				}				
+				info_object.AddMember("R", R_array, allocator);
+
+				rapidjson::Value t_array(rapidjson::kArrayType);
+				info_object.AddMember("t_rows", 1, allocator);
+				info_object.AddMember("t_cols", 3, allocator);
+				for (int r = 0; r < 3; r++) {
+					for (int c = 0; c < 3; c++) {
+						t_array.PushBack(r * 10 + c, allocator);
+					}
+				}
+				info_object.AddMember("t", t_array, allocator);
+
+				info_array.PushBack(info_object, allocator);
+
+			}
+
+			doc.AddMember("Info", info_array, allocator);
+
+
+			// 3. Stringify the DOM
+			StringBuffer buffer;
+			Writer<StringBuffer> writer(buffer);
+			doc.Accept(writer);
+			std::cout << buffer.GetString() << std::endl;
 		}
 		return 0;
 	}
