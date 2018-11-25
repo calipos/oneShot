@@ -280,6 +280,7 @@ namespace unre
 							imgs[streamIdx]->release();
 						}
 						imgs[streamIdx] = new cv::Mat(height, width, CV_16UC1);
+						stream2Extr[streamIdx] = std::make_tuple(new cv::Mat(0, 0, CV_64FC1), new cv::Mat(0, 0, CV_64FC1));
 					}
 					else
 					{
@@ -295,6 +296,7 @@ namespace unre
 							imgs[streamIdx]->release();
 						}
 						imgs[streamIdx] = new cv::Mat(height, width, CV_8UC1);
+						stream2Extr[streamIdx] = std::make_tuple(new cv::Mat(0, 0, CV_64FC1), new cv::Mat(0, 0, CV_64FC1));
 					}
 					else
 					{
@@ -496,39 +498,28 @@ namespace unre
 			}	
 		}
 		{
-			//
-			int x = 1 + 1;
-			rapidjson::Document doc;
-			doc.SetObject();
-			rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
-
-			doc.AddMember("MsgSendFlag", 1, allocator);
-			doc.AddMember("MsgErrorReason", "IDorpassworderror", allocator);
-			doc.AddMember("MsgRef", 1, allocator);
-
+			rapidjson::Document::AllocatorType& allocator = calibDocRoot.GetAllocator();
 			rapidjson::Value info_array(rapidjson::kArrayType);
-
-			for (int i = 0; i < 2; i++) {
+			for (int i = 0; i < stream2Extr.size(); i++) {
 				rapidjson::Value info_object(rapidjson::kObjectType);
 				info_object.SetObject();
-				info_object.AddMember("lots", 10 + i, allocator);
-				info_object.AddMember("order_algorithm", "01", allocator);
+				info_object.AddMember("streamIdx", i, allocator);
 
 				rapidjson::Value R_array(rapidjson::kArrayType);
-				info_object.AddMember("R_rows", 3, allocator);
-				info_object.AddMember("R_cols", 3, allocator);
-				for (int r = 0; r < 3; r++) {
-					for (int c = 0; c < 3; c++) {
+				info_object.AddMember("R_rows", std::get<0>(stream2Extr[i])->rows, allocator);
+				info_object.AddMember("R_cols", std::get<0>(stream2Extr[i])->cols, allocator);
+				for (int r = 0; r < std::get<0>(stream2Extr[i])->rows; r++) {
+					for (int c = 0; c < std::get<0>(stream2Extr[i])->cols; c++) {
 						R_array.PushBack(r*10+c, allocator);
 					}
 				}				
 				info_object.AddMember("R", R_array, allocator);
 
 				rapidjson::Value t_array(rapidjson::kArrayType);
-				info_object.AddMember("t_rows", 1, allocator);
-				info_object.AddMember("t_cols", 3, allocator);
-				for (int r = 0; r < 3; r++) {
-					for (int c = 0; c < 3; c++) {
+				info_object.AddMember("t_rows", std::get<1>(stream2Extr[i])->rows, allocator);
+				info_object.AddMember("t_cols", std::get<1>(stream2Extr[i])->cols, allocator);
+				for (int r = 0; r < std::get<1>(stream2Extr[i])->rows; r++) {
+					for (int c = 0; c < std::get<1>(stream2Extr[i])->cols; c++) {
 						t_array.PushBack(r * 10 + c, allocator);
 					}
 				}
@@ -538,14 +529,16 @@ namespace unre
 
 			}
 
-			doc.AddMember("Info", info_array, allocator);
+			calibDocRoot.AddMember("caeraExtParams", info_array, allocator);
 
 
 			// 3. Stringify the DOM
-			StringBuffer buffer;
-			Writer<StringBuffer> writer(buffer);
-			doc.Accept(writer);
-			std::cout << buffer.GetString() << std::endl;
+			rapidjson::StringBuffer buffer;
+			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+			calibDocRoot.Accept(writer);
+			std::fstream fout("calib.json",std::ios::out);
+			fout << buffer.GetString() << std::endl;
+			fout.close();
 		}
 		return 0;
 	}
