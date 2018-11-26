@@ -5,11 +5,12 @@
 #include"iofile.h"
 #include"dataExplorer.h"
 
+#include"unreGpu.h"
 
 #ifdef OPENCV_SHOW
 #include "opencv2/opencv.hpp"
 #endif
-
+extern short2*volume;
 namespace unre
 {
 	DataExplorer::DataExplorer(int streamNum,bool doCalib)
@@ -252,9 +253,33 @@ namespace unre
 			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
 			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);
 
-			LOG(INFO) << bufferVecP.size();
-			LOG(INFO) << stream2Extr.size();
-			LOG(INFO) << stream2Intr.size();
+			//LOG(INFO) << bufferVecP.size();
+			//LOG(INFO) << stream2Extr.size();
+			//LOG(INFO) << stream2Intr.size();
+			cv::Mat ddd= (std::get<0>(stream2Extr[2])).clone();
+			//ddd =(std::get<1>(stream2Extr[2])).clone();
+			//ddd = stream2Intr[1]->clone();
+
+
+			initVolu();
+			Mat33 R_( std::get<0>(stream2Extr[2]).ptr<double>(0), 
+				std::get<0>(stream2Extr[2]).ptr<double>(1), 
+				std::get<0>(stream2Extr[2]).ptr<double>(2)	);
+			float3 t_;
+			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0];
+			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0];
+			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0];
+
+			float*scaledDepth = NULL;
+			integrateTsdfVolume((unsigned short*)show2.data, show2.rows, show2.cols, 
+				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
+				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
+				R_, t_,0, volume, scaledDepth);
+			{
+				cv::Mat cpu_data(show2.rows, show2.cols,CV_32FC1);
+				cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
+
+			}
 
 		}
 		return 0;
@@ -296,7 +321,7 @@ namespace unre
 							t.ptr<double>(i)[j] = calibDocRoot["caeraExtParams"][stream_from_calib]["t"][i*t_c + j].GetDouble();
 						}
 					}
-					stream2Extr[this_stream_idx] = std::make_tuple(&R,&t);
+					stream2Extr[this_stream_idx] = std::make_tuple(R, t);
 				}
 				
 			}
@@ -346,7 +371,7 @@ namespace unre
 							imgs[streamIdx]->release();
 						}
 						imgs[streamIdx] = new cv::Mat(height, width, CV_8UC3);
-						stream2Extr[streamIdx] = std::make_tuple(new cv::Mat(0, 0, CV_64FC1), new cv::Mat(0, 0, CV_64FC1));
+						stream2Extr[streamIdx] = std::make_tuple(cv::Mat(0, 0, CV_64FC1), cv::Mat(0, 0, CV_64FC1));
 					}
 					else
 					{
@@ -362,7 +387,7 @@ namespace unre
 							imgs[streamIdx]->release();
 						}
 						imgs[streamIdx] = new cv::Mat(height, width, CV_16UC1);
-						stream2Extr[streamIdx] = std::make_tuple(new cv::Mat(0, 0, CV_64FC1), new cv::Mat(0, 0, CV_64FC1));
+						stream2Extr[streamIdx] = std::make_tuple(cv::Mat(0, 0, CV_64FC1), cv::Mat(0, 0, CV_64FC1));
 					}
 					else
 					{
@@ -378,7 +403,7 @@ namespace unre
 							imgs[streamIdx]->release();
 						}
 						imgs[streamIdx] = new cv::Mat(height, width, CV_8UC1);
-						stream2Extr[streamIdx] = std::make_tuple(new cv::Mat(0, 0, CV_64FC1), new cv::Mat(0, 0, CV_64FC1));
+						stream2Extr[streamIdx] = std::make_tuple(cv::Mat(0, 0, CV_64FC1), cv::Mat(0, 0, CV_64FC1));
 					}
 					else
 					{
@@ -556,8 +581,8 @@ namespace unre
 						cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
 						cv::Mat Rmetrix;
 						cv::Rodrigues(Rvect, Rmetrix);						
-						Rmetrix.copyTo(*std::get<0>(stream2Extr[i]));
-						t.copyTo(*std::get<1>(stream2Extr[i]));
+						Rmetrix.copyTo(std::get<0>(stream2Extr[i]));
+						t.copyTo(std::get<1>(stream2Extr[i]));
 					}
 					else
 					{
@@ -588,21 +613,21 @@ namespace unre
 				info_object.AddMember("streamIdx", i, allocator);
 
 				rapidjson::Value R_array(rapidjson::kArrayType);
-				info_object.AddMember("R_rows", std::get<0>(stream2Extr[i])->rows, allocator);
-				info_object.AddMember("R_cols", std::get<0>(stream2Extr[i])->cols, allocator);
-				for (int r = 0; r < std::get<0>(stream2Extr[i])->rows; r++) {
-					for (int c = 0; c < std::get<0>(stream2Extr[i])->cols; c++) {
-						R_array.PushBack(std::get<0>(stream2Extr[i])->ptr<double>(r)[c], allocator);
+				info_object.AddMember("R_rows", std::get<0>(stream2Extr[i]).rows, allocator);
+				info_object.AddMember("R_cols", std::get<0>(stream2Extr[i]).cols, allocator);
+				for (int r = 0; r < std::get<0>(stream2Extr[i]).rows; r++) {
+					for (int c = 0; c < std::get<0>(stream2Extr[i]).cols; c++) {
+						R_array.PushBack(std::get<0>(stream2Extr[i]).ptr<double>(r)[c], allocator);
 					}
 				}				
 				info_object.AddMember("R", R_array, allocator);
 
 				rapidjson::Value t_array(rapidjson::kArrayType);
-				info_object.AddMember("t_rows", std::get<1>(stream2Extr[i])->rows, allocator);
-				info_object.AddMember("t_cols", std::get<1>(stream2Extr[i])->cols, allocator);
-				for (int r = 0; r < std::get<1>(stream2Extr[i])->rows; r++) {
-					for (int c = 0; c < std::get<1>(stream2Extr[i])->cols; c++) {
-						t_array.PushBack(std::get<1>(stream2Extr[i])->ptr<double>(r)[c], allocator);
+				info_object.AddMember("t_rows", std::get<1>(stream2Extr[i]).rows, allocator);
+				info_object.AddMember("t_cols", std::get<1>(stream2Extr[i]).cols, allocator);
+				for (int r = 0; r < std::get<1>(stream2Extr[i]).rows; r++) {
+					for (int c = 0; c < std::get<1>(stream2Extr[i]).cols; c++) {
+						t_array.PushBack(std::get<1>(stream2Extr[i]).ptr<double>(r)[c], allocator);
 					}
 				}
 				info_object.AddMember("t", t_array, allocator);

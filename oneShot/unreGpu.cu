@@ -3,6 +3,18 @@
 #include <cuda_runtime.h>
 #include <device_functions.h>
 
+
+const int DIVISOR = 32767;     // SHRT_MAX;
+short2*volume = NULL;
+struct Tsdf
+{
+	enum
+	{
+		CTA_SIZE_X = 32, CTA_SIZE_Y = 8,
+		MAX_WEIGHT = 1 << 7
+	};
+};
+
 template<>
 float* creatGpuData<float>(const int elemCnt, bool fore_zeros)
 {
@@ -28,6 +40,18 @@ short* creatGpuData<short>(const int elemCnt, bool fore_zeros)
 	return (short*)gpudata;
 }
 template<>
+short2* creatGpuData<short2>(const int elemCnt, bool fore_zeros)
+{
+	void*gpudata = NULL;
+	cudaMalloc((void**)&gpudata, elemCnt * sizeof(short));
+	if (fore_zeros)
+	{
+		cudaMemset(gpudata, 0, elemCnt * sizeof(short));
+	}
+	cudaSafeCall(cudaGetLastError());
+	return (short2*)gpudata;
+}
+template<>
 unsigned short* creatGpuData<unsigned short>(const int elemCnt, bool fore_zeros)
 {
 	void*gpudata = NULL;
@@ -38,6 +62,32 @@ unsigned short* creatGpuData<unsigned short>(const int elemCnt, bool fore_zeros)
 	}
 	cudaSafeCall(cudaGetLastError());
 	return (unsigned short*)gpudata;
+}
+
+__device__ __forceinline__ void
+pack_tsdf(float tsdf, int weight, short2& value)
+{
+	int fixedp = max(-DIVISOR, min(DIVISOR, __float2int_rz(tsdf * DIVISOR)));
+	//int fixedp = __float2int_rz(tsdf * DIVISOR);
+	value = make_short2(fixedp, weight);
+}
+__device__ __forceinline__ void
+unpack_tsdf(short2 value, float& tsdf, int& weight)
+{
+	weight = value.y;
+	tsdf = __int2float_rn(value.x) / DIVISOR;   //*/ * INV_DIV;
+}
+
+__device__ __forceinline__ float
+unpack_tsdf(short2 value)
+{
+	return static_cast<float>(value.x) / DIVISOR;    //*/ * INV_DIV;
+}
+
+int initVolu()
+{
+	volume = creatGpuData<short2>(VOLUME_X*VOLUME_Y*VOLUME_Z);
+	return 0;
 }
 
 
@@ -62,9 +112,9 @@ scaleDepth(const unsigned short* depth, float* scaled, const int rows,const int 
 
 
 __global__ void
-tsdf23(const float* depthScaled, short* volume, int rows, int cols,
+tsdf23(const float* depthScaled, short2* volume, int rows, int cols,
 	const float intr_cx, const float intr_cy, const float intr_fx, const float intr_fy,
-	const float tranc_dist, const double* R, const double* t, float3 &cell_size)
+	const float tranc_dist, const Mat33& R, const float3& t, float3 &cell_size) 
 {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -72,38 +122,36 @@ tsdf23(const float* depthScaled, short* volume, int rows, int cols,
 	if (x >= VOLUME_X || y >= VOLUME_Y)
 		return;
 
-	float v_g_x = (x + 0.5f) * VOLUME_SIZE_X - t[0];
-	float v_g_y = (y + 0.5f) * VOLUME_SIZE_Y - t[1];
-	float v_g_z = (0 + 0.5f) * VOLUME_SIZE_Z - t[2];
+	float v_g_x = (x + 0.5f) * cell_size.x - t.x;
+	float v_g_y = (y + 0.5f) * cell_size.y - t.y;
+	float v_g_z = (0 + 0.5f) * cell_size.z - t.z;
 
 	float v_g_part_norm = v_g_x * v_g_x + v_g_y * v_g_y;
 
-	float v_x = (R[0] * v_g_x + R[1] * v_g_y + R[2] * v_g_z) * intr_fx;
-	float v_y = (R[3] * v_g_x + R[4] * v_g_y + R[5] * v_g_z) * intr_fy;
-	float v_z = (R[6] * v_g_x + R[7] * v_g_y + R[8] * v_g_z);
+	float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) * intr_fx;
+	float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) * intr_fy;
+	float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z);
 
 	float z_scaled = 0;
 
-	float Rcurr_inv_0_z_scaled = R[2] * VOLUME_SIZE_Z * intr_fx;
-	float Rcurr_inv_1_z_scaled = R[5] * VOLUME_SIZE_Z * intr_fy;
+	float Rcurr_inv_0_z_scaled = R.data[0].z * cell_size.z * intr_fx;
+	float Rcurr_inv_1_z_scaled = R.data[1].z * cell_size.z * intr_fy;
 
 	float tranc_dist_inv = 1.0f / tranc_dist;
-	
-	short2* pos = 0;
-	int elem_step = 0;
-	//short2* pos = volume.ptr(y) + x;
-	//int elem_step = volume.step * VOLUME_Y / sizeof(short2);
+
+	short2* pos = volume+ y*VOLUME_X + x;
+	int elem_step = VOLUME_X * VOLUME_Y ;
 
 	//#pragma unroll
 	for (int z = 0; z < VOLUME_Z;
 		++z,
-		v_g_z += VOLUME_SIZE_Z,
-		z_scaled += VOLUME_SIZE_Z,
+		v_g_z += cell_size.z,
+		z_scaled += cell_size.z,
 		v_x += Rcurr_inv_0_z_scaled,
 		v_y += Rcurr_inv_1_z_scaled,
 		pos += elem_step)
 	{
-		float inv_z = 1.0f / (v_z + R[8] * z_scaled);
+		float inv_z = 1.0f / (v_z + R.data[2].z * z_scaled);
 		if (inv_z < 0)
 			continue;
 
@@ -123,34 +171,41 @@ tsdf23(const float* depthScaled, short* volume, int rows, int cols,
 			if (Dp_scaled != 0 && sdf >= -tranc_dist) //meters
 			{
 				float tsdf = fmin(1.0f, sdf * tranc_dist_inv);
+				//read and unpack
+				float tsdf_prev;
+				int weight_prev;
+				unpack_tsdf(*pos, tsdf_prev, weight_prev);
 
-				//float tsdf_prev;
-				//int weight_prev;
-				//unpack_tsdf(*pos, tsdf_prev, weight_prev);
-				//const int Wrk = 1;
-				//float tsdf_new = (tsdf_prev * weight_prev + Wrk * tsdf) / (weight_prev + Wrk);
-				//int weight_new = min(weight_prev + Wrk, Tsdf::MAX_WEIGHT);
-				//pack_tsdf(tsdf_new, weight_new, *pos);
+				const int Wrk = 1;
+
+				float tsdf_new = (tsdf_prev * weight_prev + Wrk * tsdf) / (weight_prev + Wrk);
+				int weight_new = min(weight_prev + Wrk, Tsdf::MAX_WEIGHT);
+
+				pack_tsdf(tsdf_new, weight_new, *pos);
 			}
 		}
-	}      
-}      
+	}
+}
 
 
 void integrateTsdfVolume(const unsigned short* depth_raw, int rows, int cols,
 	const float intr_cx, const float intr_cy, const float intr_fx, const float intr_fy,
-	const double* R, const double* t, const float tranc_dist, short* volume, float* depthRawScaled)
+	const Mat33& R, const float3& t, const float tranc_dist, short2* volume,float*&depthRawScaled)
 {
 
 	depthRawScaled = creatGpuData<float>(rows*cols);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 
 	dim3 block_scale(32, 8);
 	dim3 grid_scale(divUp(cols, block_scale.x), divUp(rows, block_scale.y));
+	cudaSafeCall(cudaDeviceSynchronize());
 
 	//scales depth along ray and converts mm -> meters. 
 	scaleDepth << <grid_scale, block_scale >> >(depth_raw, depthRawScaled, rows, cols,
 		intr_cx, intr_cy, intr_fx, intr_fy);
 	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 
 	float3 cell_size;
 	cell_size.x = VOLUME_SIZE_X / VOLUME_X;
@@ -161,9 +216,9 @@ void integrateTsdfVolume(const unsigned short* depth_raw, int rows, int cols,
 	dim3 block(16, 16);
 	dim3 grid(divUp(VOLUME_X, block.x), divUp(VOLUME_Y, block.y));
 
-	tsdf23 << <grid, block >> >(depthRawScaled, volume, rows, cols,
-		intr_cx, intr_cy, intr_fx, intr_fy,
-		tranc_dist,R, t, cell_size);
+	//tsdf23 << <grid, block >> >(depthRawScaled, volume, rows, cols,
+		//intr_cx, intr_cy, intr_fx, intr_fy,
+		//tranc_dist,R, t, cell_size);
 	//tsdf23normal_hack<<<grid, block>>>(depthScaled, volume, tranc_dist, Rcurr_inv, tcurr, intr, cell_size);
 
 	cudaSafeCall(cudaGetLastError());
