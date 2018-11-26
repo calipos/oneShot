@@ -20,9 +20,10 @@ extern int TEST_dataExplorer();
 extern int TEST_dataExplorer_destroy();
 extern void TEST_ogjectDestroy();
 extern int TEST_calib();
+extern int TEST_tsdf();
 int main()
 {
-	TEST_calib();
+	TEST_tsdf();
 	//TEST_dataExplorer_destroy();
 	//TEST_dataExplorer();
 	//TEST_calib2();

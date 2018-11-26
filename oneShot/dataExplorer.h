@@ -19,6 +19,8 @@ namespace unre
 		int deleteDevice() { delete dev_e; return 0; };
 		int getBuffer_fortest();
 		int getBuffer_fortest3();
+		int doTsdf();
+		int readExtrParams();
 		const std::vector<Buffer>&getBufferVecP();
 		const std::vector<std::tuple<std::string, oneDevMap> >& getStreamInfo();
 		int calibAllStream();

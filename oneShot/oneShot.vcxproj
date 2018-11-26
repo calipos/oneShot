@@ -229,6 +229,7 @@
     <ClInclude Include="sensor.h" />
     <ClInclude Include="stringOp.h" />
     <ClInclude Include="threadPool.h" />
+    <ClInclude Include="unreGpu.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="3rdPart\caffe\src\blob.cpp" />
@@ -284,6 +285,7 @@
     <ClCompile Include="TEST_calib.cpp" />
     <ClCompile Include="TEST_dataExplorer.cpp" />
     <ClCompile Include="TEST_dataExplorer_destroy.cpp" />
+    <ClCompile Include="TEST_tsdf.cpp" />
     <ClCompile Include="TEST_jsonExplorer.cpp" />
     <ClCompile Include="TEST_json_write_read.cpp" />
     <ClCompile Include="main.cpp" />
@@ -424,6 +426,7 @@
       <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">compute_30,sm_30;compute_35,sm_35;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60;%(CodeGeneration)</CodeGeneration>
       <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">compute_30,sm_30;compute_35,sm_35;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60</CodeGeneration>
     </CudaCompile>
+    <CudaCompile Include="unreGpu.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -227,6 +227,88 @@ namespace unre
 		return 0;
 	}
 
+	int DataExplorer::doTsdf()
+	{
+		readExtrParams();
+		for (auto&item : bufferVecP)  CHECK(item.data) << "null data is disallowed!";
+		int height1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->height;
+		int width1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->width;
+		int channels1 = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->channels;
+		int height2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->height;
+		int width2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->width;
+		int channels2 = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->channels;
+		int height3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->height;
+		int width3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->width;
+		int channels3 = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->channels;
+#ifdef OPENCV_SHOW
+		cv::Mat show1 = cv::Mat(height1, width1, channels1 == 1 ? CV_8UC1 : CV_8UC3);
+		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
+		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);
+#endif
+		int time__ = 500;
+		while (time__--)
+		{
+			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
+			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
+			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);
+
+			LOG(INFO) << bufferVecP.size();
+			LOG(INFO) << stream2Extr.size();
+			LOG(INFO) << stream2Intr.size();
+
+		}
+		return 0;
+	}
+
+	int DataExplorer::readExtrParams()
+	{
+		if (FileOP::FileExist("calib.json"))
+		{
+			rapidjson::Document calibDocRoot;
+			calibDocRoot.Parse<0>(unre::StringOP::parseJsonFile2str("calib.json").c_str());
+			cv::Size2f chessUnitSize;
+			if (calibDocRoot.HasMember("caeraExtParams") && calibDocRoot["caeraExtParams"].IsArray())
+			{
+				int stream_num_from_calib = calibDocRoot["caeraExtParams"].Size();
+				CHECK(stream_num_from_calib == getExactStreamCnt())<<"The extern param must match stream!!!";
+				stream2Extr.clear();
+				for (size_t stream_from_calib = 0; stream_from_calib < stream_num_from_calib; stream_from_calib++)
+				{
+					int this_stream_idx = JsonExplorer::getValue<int>(calibDocRoot["caeraExtParams"][stream_from_calib], "streamIdx");
+					CHECK(calibDocRoot["caeraExtParams"][stream_from_calib]["R"].IsArray() && calibDocRoot["caeraExtParams"][stream_from_calib]["t"].IsArray());
+					int R_r = JsonExplorer::getValue<int>(calibDocRoot["caeraExtParams"][stream_from_calib], "R_rows");
+					int R_c = JsonExplorer::getValue<int>(calibDocRoot["caeraExtParams"][stream_from_calib], "R_cols");
+					int t_r = JsonExplorer::getValue<int>(calibDocRoot["caeraExtParams"][stream_from_calib], "t_rows");
+					int t_c = JsonExplorer::getValue<int>(calibDocRoot["caeraExtParams"][stream_from_calib], "t_cols");
+					cv::Mat R = cv::Mat::zeros(R_r, R_c, CV_64FC1);
+					cv::Mat t = cv::Mat::zeros(t_r, t_c, CV_64FC1);
+					for (size_t i = 0; i < R_r; i++)
+					{
+						for (size_t j = 0; j < R_c; j++)
+						{
+							R.ptr<double>(i)[j] = calibDocRoot["caeraExtParams"][stream_from_calib]["R"][i*R_c + j].GetDouble();
+						}
+					}
+					for (size_t i = 0; i < t_r; i++)
+					{
+						for (size_t j = 0; j < t_c; j++)
+						{
+							t.ptr<double>(i)[j] = calibDocRoot["caeraExtParams"][stream_from_calib]["t"][i*t_c + j].GetDouble();
+						}
+					}
+					stream2Extr[this_stream_idx] = std::make_tuple(&R,&t);
+				}
+				
+			}
+		}
+		else
+		{
+			LOG(FATAL) << "No calib.json, so cant read the extern params!!";
+		}
+		return 0;
+
+	}
+
 	const std::vector<Buffer>&DataExplorer::getBufferVecP()
 	{
 		return bufferVecP;
@@ -510,7 +592,7 @@ namespace unre
 				info_object.AddMember("R_cols", std::get<0>(stream2Extr[i])->cols, allocator);
 				for (int r = 0; r < std::get<0>(stream2Extr[i])->rows; r++) {
 					for (int c = 0; c < std::get<0>(stream2Extr[i])->cols; c++) {
-						R_array.PushBack(r*10+c, allocator);
+						R_array.PushBack(std::get<0>(stream2Extr[i])->ptr<double>(r)[c], allocator);
 					}
 				}				
 				info_object.AddMember("R", R_array, allocator);
@@ -520,7 +602,7 @@ namespace unre
 				info_object.AddMember("t_cols", std::get<1>(stream2Extr[i])->cols, allocator);
 				for (int r = 0; r < std::get<1>(stream2Extr[i])->rows; r++) {
 					for (int c = 0; c < std::get<1>(stream2Extr[i])->cols; c++) {
-						t_array.PushBack(r * 10 + c, allocator);
+						t_array.PushBack(std::get<1>(stream2Extr[i])->ptr<double>(r)[c], allocator);
 					}
 				}
 				info_object.AddMember("t", t_array, allocator);

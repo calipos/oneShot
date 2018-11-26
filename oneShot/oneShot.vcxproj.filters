@@ -276,7 +276,12 @@
     <ClInclude Include="3rdPart\caffe\include\caffe\syncedmem.hpp">
       <Filter>caffe\include</Filter>
     </ClInclude>
-    <ClInclude Include="3rdPart\caffe\include\caffe\common.cuh" />
+    <ClInclude Include="unreGpu.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdPart\caffe\include\caffe\common.cuh">
+      <Filter>caffe\include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">
@@ -453,6 +458,9 @@
     <ClCompile Include="TEST_caffe.cpp">
       <Filter>源文件\TEST</Filter>
     </ClCompile>
+    <ClCompile Include="TEST_tsdf.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="3rdPart\caffe\src\layers\split_layer.cu">
@@ -515,7 +523,14 @@
     <CudaCompile Include="3rdPart\caffe\src\layers\softmax_layer.cu">
       <Filter>caffe\cu\layers</Filter>
     </CudaCompile>
-    <CudaCompile Include="3rdPart\caffe\src\util\im2col.cu" />
-    <CudaCompile Include="3rdPart\caffe\src\util\math_functions.cu" />
+    <CudaCompile Include="unreGpu.cu">
+      <Filter>源文件</Filter>
+    </CudaCompile>
+    <CudaCompile Include="3rdPart\caffe\src\util\im2col.cu">
+      <Filter>caffe\cu\util</Filter>
+    </CudaCompile>
+    <CudaCompile Include="3rdPart\caffe\src\util\math_functions.cu">
+      <Filter>caffe\cu\util</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>
