@@ -271,14 +271,15 @@ namespace unre
 			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0];
 
 			float*scaledDepth = NULL;
-			integrateTsdfVolume((unsigned short*)show2.data, show2.rows, show2.cols, 
+			unsigned short*depth_dev = creatGpuData<unsigned short>(show2.rows*show2.cols);
+			cudaMemcpy((void*)depth_dev, (void*)show2.data, show2.rows*show2.cols*sizeof(unsigned short),cudaMemcpyHostToDevice);
+			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
 				R_, t_,0, volume, scaledDepth);
 			{
-				cv::Mat cpu_data(show2.rows, show2.cols,CV_32FC1);
-				cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
-
+				//cv::Mat cpu_data(show2.rows, show2.cols,CV_32FC1);
+				//cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
 			}
 
 		}

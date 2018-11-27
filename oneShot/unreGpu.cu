@@ -97,7 +97,7 @@ scaleDepth(const unsigned short* depth, float* scaled, const int rows,const int 
 {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
-
+	
 	if (x >= cols || y >= rows)
 		return;
 
@@ -194,19 +194,18 @@ void integrateTsdfVolume(const unsigned short* depth_raw, int rows, int cols,
 {
 
 	depthRawScaled = creatGpuData<float>(rows*cols);
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
+
 
 	dim3 block_scale(32, 8);
 	dim3 grid_scale(divUp(cols, block_scale.x), divUp(rows, block_scale.y));
 	cudaSafeCall(cudaDeviceSynchronize());
-
+	
 	//scales depth along ray and converts mm -> meters. 
 	scaleDepth << <grid_scale, block_scale >> >(depth_raw, depthRawScaled, rows, cols,
 		intr_cx, intr_cy, intr_fx, intr_fy);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
-
+	
 	float3 cell_size;
 	cell_size.x = VOLUME_SIZE_X / VOLUME_X;
 	cell_size.y = VOLUME_SIZE_Y / VOLUME_Y;
