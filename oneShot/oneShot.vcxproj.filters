@@ -76,6 +76,9 @@
     <Filter Include="caffe\cu\util">
       <UniqueIdentifier>{29551800-bf41-4bce-9d59-bdf8ecaf7c75}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\cuda">
+      <UniqueIdentifier>{8f329745-9d63-40f6-8766-5299e8b6ce6d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logg.h">
@@ -276,11 +279,17 @@
     <ClInclude Include="3rdPart\caffe\include\caffe\syncedmem.hpp">
       <Filter>caffe\include</Filter>
     </ClInclude>
-    <ClInclude Include="unreGpu.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="3rdPart\caffe\include\caffe\common.cuh">
       <Filter>caffe\include</Filter>
+    </ClInclude>
+    <ClInclude Include="unreGpu.h">
+      <Filter>头文件\cuda</Filter>
+    </ClInclude>
+    <ClInclude Include="filters.h">
+      <Filter>头文件\cuda</Filter>
+    </ClInclude>
+    <ClInclude Include="fillHoles.h">
+      <Filter>头文件\cuda</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -531,6 +540,9 @@
     </CudaCompile>
     <CudaCompile Include="3rdPart\caffe\src\util\math_functions.cu">
       <Filter>caffe\cu\util</Filter>
+    </CudaCompile>
+    <CudaCompile Include="filters.cu">
+      <Filter>源文件</Filter>
     </CudaCompile>
   </ItemGroup>
 </Project>

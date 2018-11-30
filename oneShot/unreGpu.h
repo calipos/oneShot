@@ -35,33 +35,40 @@ struct Mat33
 		float3 a3;		a1.x = data[6]; a1.y = data[7]; a1.z = data[8];
 		Mat33(a1,a2,a3);
 	}
-	Mat33(double*data)
+	Mat33(double*data_)
 	{
-		float3 a1;		a1.x = data[0]; a1.y = data[1]; a1.z = data[2];
-		float3 a2;		a1.x = data[3]; a1.y = data[4]; a1.z = data[5];
-		float3 a3;		a1.x = data[6]; a1.y = data[7]; a1.z = data[8];
-		Mat33(a1, a2, a3);
+		float3 a1;		a1.x = data_[0]; a1.y = data_[1]; a1.z = data_[2];
+		float3 a2;		a1.x = data_[3]; a1.y = data_[4]; a1.z = data_[5];
+		float3 a3;		a1.x = data_[6]; a1.y = data_[7]; a1.z = data_[8];
+		data[0] = a1;
+		data[1] = a2;
+		data[2] = a3;
 	}
 	Mat33(float*d1, float*d2, float*d3)
 	{
 		float3 a1;		a1.x = d1[0]; a1.y = d1[1]; a1.z = d1[2];
 		float3 a2;		a2.x = d2[0]; a2.y = d2[1]; a2.z = d2[2];
 		float3 a3;		a3.x = d3[0]; a3.y = d3[1]; a3.z = d3[2];
-		Mat33(a1, a2, a3);
+		data[0] = a1;
+		data[1] = a2;
+		data[2] = a3;
 	}
 	Mat33(double*d1, double*d2, double*d3)
 	{
 		float3 a1;		a1.x = d1[0]; a1.y = d1[1]; a1.z = d1[2];
 		float3 a2;		a2.x = d2[0]; a2.y = d2[1]; a2.z = d2[2];
 		float3 a3;		a3.x = d3[0]; a3.y = d3[1]; a3.z = d3[2];
-		Mat33(a1, a2, a3);
+		data[0] = a1;
+		data[1] = a2;
+		data[2] = a3;
 	}
 };
 
 
 
-enum { VOLUME_SIZE_X = 512, VOLUME_SIZE_Y = 512, VOLUME_SIZE_Z = 512 };//mm
-enum { VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512 };
+enum { VOLUME_SIZE_X = 1024, VOLUME_SIZE_Y = 1024, VOLUME_SIZE_Z = 1024};//mm
+enum { VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024
+};
 
 template<typename Dtype>
 Dtype* creatGpuData(const int elemCnt, bool fore_zeros = false);
@@ -70,9 +77,9 @@ static inline int divUp(int total, int grain) { return (total + grain - 1) / gra
 
 int initVolu();
 
-void integrateTsdfVolume(const unsigned short* depth_raw, int rows, int cols,
-	const float intr_cx, const float intr_cy, const float intr_fx, const float intr_fy,
-	const Mat33& R, const float3& t, const float tranc_dist, short2* volume, float*&depthRawScaled);
+void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
+	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
+	Mat33 R, float3 t, float tranc_dist, short2* volume, float*&depthRawScaled);
 
 
 #endif

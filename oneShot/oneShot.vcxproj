@@ -221,6 +221,8 @@
     <ClInclude Include="dataExplorer.h" />
     <ClInclude Include="deviceExplorer.h" />
     <ClInclude Include="errorCode.h" />
+    <ClInclude Include="fillHoles.h" />
+    <ClInclude Include="filters.h" />
     <ClInclude Include="iofile.h" />
     <ClInclude Include="jsonExplorer.h" />
     <ClInclude Include="logg.h" />
@@ -426,6 +428,7 @@
       <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">compute_30,sm_30;compute_35,sm_35;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60;%(CodeGeneration)</CodeGeneration>
       <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">compute_30,sm_30;compute_35,sm_35;compute_50,sm_50;compute_52,sm_52;compute_60,sm_60</CodeGeneration>
     </CudaCompile>
+    <CudaCompile Include="filters.cu" />
     <CudaCompile Include="unreGpu.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

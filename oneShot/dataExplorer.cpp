@@ -252,6 +252,13 @@ namespace unre
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
 			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
 			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);
+			
+			
+			cv::Mat deepImg_gray = cv::imread("D:/repo/self_kinfu/otherKinfu/unre_deepImg_" + std::to_string(67) + ".bmp");
+			cv::cvtColor(deepImg_gray, deepImg_gray, CV_RGB2GRAY);
+			deepImg_gray.convertTo(deepImg_gray,CV_16UC1);
+			deepImg_gray *= 3;
+			cv::resize(deepImg_gray, show2, cv::Size(1080,720));
 
 			//LOG(INFO) << bufferVecP.size();
 			//LOG(INFO) << stream2Extr.size();
@@ -271,15 +278,116 @@ namespace unre
 			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0];
 
 			float*scaledDepth = NULL;
-			unsigned short*depth_dev = creatGpuData<unsigned short>(show2.rows*show2.cols);
+			short*depth_dev = creatGpuData<short>(show2.rows*show2.cols);
 			cudaMemcpy((void*)depth_dev, (void*)show2.data, show2.rows*show2.cols*sizeof(unsigned short),cudaMemcpyHostToDevice);
 			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_,0, volume, scaledDepth);
+				R_, t_,30, volume, scaledDepth);
 			{
-				//cv::Mat cpu_data(show2.rows, show2.cols,CV_32FC1);
-				//cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
+
+				short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
+				cv::Mat cpu_data(show2.rows, show2.cols, CV_32FC1);
+				cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
+				float3 cell_size; cell_size.x = 1.; cell_size.y = 1.; cell_size.z = 1.;
+				auto& R = R_;
+				auto& t = t_;
+				if (false)
+				{
+
+				
+					for (int y = 0; y < 512; y++)for (int x = 0; x < 512; x++)
+				{
+
+					float v_g_x = (x + 0.5f) * cell_size.x;
+					float v_g_y = (y + 0.5f) * cell_size.y;
+					float v_g_z = (0 + 0.5f) * cell_size.z;
+
+					float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z);
+					float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z);
+					float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z);
+
+					float v_part_norm = v_x * v_x + v_y * v_y + v_z*v_z;
+
+					v_z = v_z + t.z;
+					v_x = (v_x + t.x) * stream2Intr[1]->ptr<double>(0)[2];
+					v_y = (v_y + t.y) * stream2Intr[1]->ptr<double>(1)[2];
+
+
+					float z_scaled = 0;
+
+					float Rcurr_inv_0_z_scaled = R.data[0].z * cell_size.z * stream2Intr[1]->ptr<double>(0)[0];
+					float Rcurr_inv_1_z_scaled = R.data[1].z * cell_size.z * stream2Intr[1]->ptr<double>(1)[1];
+					float tranc_dist = 30.;
+					float tranc_dist_inv = 1.0f / tranc_dist;
+
+					short2* pos = volume___ + y*VOLUME_X + x;
+					int elem_step = VOLUME_X * VOLUME_Y;
+
+					//#pragma unroll
+					for (int z = 0; z < VOLUME_Z;
+						++z,
+						v_g_z += cell_size.z,
+						z_scaled += R.data[2].z*cell_size.z,
+						v_x += Rcurr_inv_0_z_scaled,
+						v_y += Rcurr_inv_1_z_scaled,
+						pos += elem_step)
+					{
+						float inv_z = 1.0f / (v_z + z_scaled);
+						if (inv_z < 0)
+							continue;
+
+						// project to current cam
+						int2 coo =
+						{
+							int(v_x * inv_z + stream2Intr[1]->ptr<double>(0)[2]),
+							int(v_y * inv_z + stream2Intr[1]->ptr<double>(1)[2])
+						};
+
+						if (coo.x >= 0 && coo.y >= 0 && coo.x < 1080 && coo.y < 720)         //6
+						{
+							float distance_sqr = v_part_norm;
+							float weight = 1. / (coo.x - 1080 / 2)*(coo.x - 1080 / 2) + (coo.y - 720 / 2)*(coo.y - 720 / 2);
+							float Dp_scaled = cpu_data.ptr<float>(coo.y)[coo.x]; //meters
+							float distance = sqrtf(distance_sqr);
+							float sdf = (Dp_scaled - distance);
+							LOG(INFO) << sdf;
+							if (Dp_scaled != 0 && sdf >= -tranc_dist) //meters
+							{
+								pos->x = std::max(-32767, std::min(32767, int(sdf * 32767)));
+								pos->y = weight * 32767;
+							}
+						}
+					}
+				}
+
+				}
+				
+				//short* volume___ = new short[512 * 512 * 512*2];
+				cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
+
+
+
+				for (size_t z = 0; z < VOLUME_Z; z++)
+				{
+					cv::Mat shows1 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
+					cv::Mat shows2 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
+					short*temp1 = (short*)shows1.data;
+					short*temp2 = (short*)shows2.data;
+					for (size_t i = 0; i < VOLUME_X*VOLUME_Y; i++)
+					{
+						temp1[i] = volume___[z * VOLUME_X * VOLUME_Y + i].x;
+						temp2[i] = volume___[z * VOLUME_X * VOLUME_Y + i].y;
+					}
+					cv::imshow("123", shows1);
+					cv::imshow("1234", shows2);
+					cv::waitKey(12);
+				}
+				
+				
+				int aa = 0 - 1;
+			
+			
 			}
 
 		}

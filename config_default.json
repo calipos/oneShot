@@ -1,6 +1,6 @@
 [{
-	"friendName": "realsenseD415",
-	"serialNumber": "751412060359",
+	"friendName": "virtualCamera",
+	"serialNumber": "0",
 	"sensorType": "rgb",
 	"height": 1080,
 	"width": 1920,
@@ -12,11 +12,11 @@
 	"fy":1394.35864,	
 	"extraConfigPath": ""
 }, {
-	"friendName": "realsenseD415",
-	"serialNumber": "751412060359",
+	"friendName": "virtualCamera",
+	"serialNumber": "0",
 	"sensorType": "depth",
 	"height": 720,
-	"width": 1280,
+	"width": 1080,
 	"channels": 1,
 	"Dtype": "ushort",
 	"cx":643.623596,
@@ -25,11 +25,11 @@
 	"fy":943.721985,
 	"extraConfigPath": ""
 }, {
-	"friendName": "realsenseD415",
-	"serialNumber": "751412060359",
+	"friendName": "virtualCamera",
+	"serialNumber": "0",
 	"sensorType": "infred",
 	"height": 720,
-	"width": 1280,
+	"width": 1080,
 	"channels": 1,
 	"Dtype": "uchar",
 	"cx":643.623596,
