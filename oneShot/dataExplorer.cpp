@@ -255,6 +255,31 @@ namespace unre
 			
 			
 			cv::Mat deepImg_gray = cv::imread("D:/repo/self_kinfu/otherKinfu/unre_deepImg_" + std::to_string(67) + ".bmp");
+/*
+			cv::Mat test_affine;
+			cv::resize(deepImg_gray, test_affine, cv::Size(1080, 720));
+			for (int z = 0; z < 1; z++)for (int x = 0; x < VOLUME_X; x++)for (int y = 0; y < VOLUME_Y; y++)
+			{
+				cv::Mat testP = cv::Mat::zeros(3, 1, CV_64FC1);
+				testP.ptr<double>(0)[0] = x;
+				testP.ptr<double>(1)[0] = y;
+				testP.ptr<double>(2)[0] = z;
+				cv::Mat camP = (std::get<0>(stream2Extr[2])*testP + std::get<1>(stream2Extr[2]));
+				cv::Mat y_ = cv::Mat(3, 1, CV_64F);
+				y_.ptr <double>(0)[0] = camP.ptr<double>(0)[0] * stream2Intr[1]->ptr<double>(0)[0] +
+					camP.ptr<double>(2)[0] * stream2Intr[1]->ptr<double>(0)[2];
+				y_.ptr <double>(1)[0] = camP.ptr<double>(1)[0] * stream2Intr[1]->ptr<double>(1)[1] +
+					camP.ptr<double>(2)[0] * stream2Intr[1]->ptr<double>(1)[2];
+				y_.ptr <double>(2)[0] = camP.ptr<double>(2)[0];
+				//LOG(INFO) << y_.ptr <double>(0)[0];
+				//LOG(INFO) << y_.ptr <double>(1)[0];
+				//LOG(INFO) << y_.ptr <double>(2)[0];
+				y_ = y_ / y_.ptr<double>(2)[0];				
+				cv::circle(test_affine, cv::Point(y_.ptr<double>(0)[0], y_.ptr<double>(1)[0]), 3, cv::Scalar(0, 0, 255), -1);
+			}
+*/
+
+
 			cv::cvtColor(deepImg_gray, deepImg_gray, CV_RGB2GRAY);
 			deepImg_gray.convertTo(deepImg_gray,CV_16UC1);
 			deepImg_gray *= 3;
