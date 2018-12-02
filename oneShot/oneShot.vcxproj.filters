@@ -79,6 +79,9 @@
     <Filter Include="头文件\cuda">
       <UniqueIdentifier>{8f329745-9d63-40f6-8766-5299e8b6ce6d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\cuda">
+      <UniqueIdentifier>{12cab666-2ae8-45f6-b67d-78a2ef7887f9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logg.h">
@@ -532,9 +535,6 @@
     <CudaCompile Include="3rdPart\caffe\src\layers\softmax_layer.cu">
       <Filter>caffe\cu\layers</Filter>
     </CudaCompile>
-    <CudaCompile Include="unreGpu.cu">
-      <Filter>源文件</Filter>
-    </CudaCompile>
     <CudaCompile Include="3rdPart\caffe\src\util\im2col.cu">
       <Filter>caffe\cu\util</Filter>
     </CudaCompile>
@@ -542,7 +542,13 @@
       <Filter>caffe\cu\util</Filter>
     </CudaCompile>
     <CudaCompile Include="filters.cu">
-      <Filter>源文件</Filter>
+      <Filter>源文件\cuda</Filter>
+    </CudaCompile>
+    <CudaCompile Include="unreGpu.cu">
+      <Filter>源文件\cuda</Filter>
+    </CudaCompile>
+    <CudaCompile Include="raycaster.cu">
+      <Filter>源文件\cuda</Filter>
     </CudaCompile>
   </ItemGroup>
 </Project>

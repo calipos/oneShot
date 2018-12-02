@@ -1,10 +1,8 @@
 #include "unreGpu.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <device_functions.h>
 
 
-const int DIVISOR = 32767;     // SHRT_MAX;
+
+
 short2*volume = NULL;
 struct Tsdf
 {

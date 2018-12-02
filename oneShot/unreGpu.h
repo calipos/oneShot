@@ -4,8 +4,12 @@
 #define UNRE_GPU_H_
 
 #include <stdio.h>
-#include <cuda.h>
+#include "cuda.h"
+#include "cuda_runtime.h"
 #include "cuda_runtime_api.h"
+//#include "math_functions.h"
+#include "device_functions.h"
+
 
 static inline void ___cudaSafeCall(cudaError_t err, const char *file, const int line, const char *func = "")
 {
@@ -17,6 +21,11 @@ static inline void ___cudaSafeCall(cudaError_t err, const char *file, const int 
 #else /* defined(__CUDACC__) || defined(__MSVC__) */
 #define cudaSafeCall(expr)  ___cudaSafeCall(expr, __FILE__, __LINE__)    
 #endif
+
+
+
+
+
 
 struct Mat33
 {
@@ -64,12 +73,45 @@ struct Mat33
 	}
 };
 
+__device__ __forceinline__ float3
+operator+(const float3& v1, const float3& v2)
+{
+	return make_float3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+}
+__device__ __forceinline__ float3
+operator-(const float3& v1, const float3& v2)
+{
+	return make_float3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+}
+__device__ __forceinline__ float3
+operator*(const float3& v1, const float& v)
+{
+	return make_float3(v1.x * v, v1.y * v, v1.z * v);
+}
+__device__ __forceinline__ float
+dot(const float3& v1, const float3& v2)
+{
+	return v1.x * v2.x + v1.y*v2.y + v1.z*v2.z;
+}
+__device__ __forceinline__ float3
+operator* (const Mat33& m, const float3& vec)
+{
+	return make_float3(dot(m.data[0], vec), dot(m.data[1], vec), dot(m.data[2], vec));
+}
+
+template<typename T> struct numeric_limits;
 
 
-enum { VOLUME_SIZE_X = 1024, VOLUME_SIZE_Y = 1024, VOLUME_SIZE_Z = 1024};//mm
-enum { VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024
+
+enum
+{
+	VOLUME_SIZE_X = 1024, VOLUME_SIZE_Y = 1024, VOLUME_SIZE_Z = 1024
+};//mm
+enum 
+{
+	VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024
 };
-
+const int DIVISOR = 32767;     // SHRT_MAX;
 template<typename Dtype>
 Dtype* creatGpuData(const int elemCnt, bool fore_zeros = false);
 
@@ -80,6 +122,12 @@ int initVolu();
 void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
 	Mat33 R, float3 t, float tranc_dist, short2* volume, float*&depthRawScaled);
+
+void
+raycast(const short2* volume, float3* vmap, int rows, int cols,
+	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
+	Mat33 R_, float3 t_, float tranc_dist);
+
 
 
 #endif
