@@ -648,6 +648,26 @@ namespace unre
 			return UNRE_CALIB_FILE_ERROR;
 		}
 		
+		std::map<int, int>depthIdx2infredIdx;
+		std::map<int, int>infredIdx2depthIdx;
+		auto devicesInfo = je.getSensorAssignmentInfo();
+		for (auto&this_device : devicesInfo)
+		{
+			auto&thisDeviceSensorMap = std::get<1>(this_device);
+			if ((thisDeviceSensorMap.count("depth")==1&&thisDeviceSensorMap.count("infred")==0)||
+				(thisDeviceSensorMap.count("depth") == 0 && thisDeviceSensorMap.count("infred") == 1))
+			{
+				LOG(FATAL) << "Wrong config,the 'depth' and 'infred' must be together";
+			}
+			if (thisDeviceSensorMap.count("depth") == 1 && thisDeviceSensorMap.count("infred") == 1)
+			{
+				int depthStreamIdx = std::get<0>(thisDeviceSensorMap["depth"]);
+				int infredStreamIdx = std::get<0>(thisDeviceSensorMap["infred"]);
+				depthIdx2infredIdx[depthStreamIdx] = infredStreamIdx;
+				depthIdx2infredIdx[infredStreamIdx] = depthStreamIdx;
+			}
+		}
+
 		std::vector<cv::Point3f> true3DPointSet;
 		for (int i = 0; i < chessBoradSize.height; i++)
 		{
@@ -737,6 +757,11 @@ namespace unre
 			{
 				pop2Mats(imgs);//多弹几张图，避免队列的慢放，因为找内点已经够慢了
 			}	
+		}
+		{
+			将infred的外参写给depth！！！
+			std::map<int, int>depthIdx2infredIdx;
+			std::map<int, int>infredIdx2depthIdx;
 		}
 		{
 			rapidjson::Document::AllocatorType& allocator = calibDocRoot.GetAllocator();

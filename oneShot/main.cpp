@@ -22,10 +22,10 @@ extern int TEST_calib();
 extern int TEST_tsdf();
 int main()
 {
-	TEST_tsdf();
+	//TEST_tsdf();
 	//TEST_dataExplorer_destroy();
 	//TEST_dataExplorer();
-	//TEST_calib();
+	TEST_calib();
 	system("pause");
 	return 0;
 }
