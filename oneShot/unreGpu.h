@@ -105,11 +105,11 @@ template<typename T> struct numeric_limits;
 
 enum
 {
-	VOLUME_SIZE_X = 1024, VOLUME_SIZE_Y = 1024, VOLUME_SIZE_Z = 1024
+	VOLUME_SIZE_X = 512, VOLUME_SIZE_Y = 512, VOLUME_SIZE_Z = 512
 };//mm
 enum 
 {
-	VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024
+	VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512
 };
 const int DIVISOR = 32767;     // SHRT_MAX;
 template<typename Dtype>

@@ -1,3 +1,4 @@
+#ifdef COMPILE_TEST__
 #ifdef WITH_PYTHON_LAYER
 #include "boost/python.hpp"
 namespace bp = boost::python;
@@ -290,3 +291,4 @@ int main4() {
 
 	return 0;
 }
+#endif

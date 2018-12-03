@@ -1,3 +1,4 @@
+#ifdef COMPILE_TEST
 #include<iostream>
 class B
 {
@@ -21,3 +22,4 @@ void TEST_ogjectDestroy()
 	A aa(1);
 	aa.~A();
 }
+#endif

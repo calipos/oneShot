@@ -1,3 +1,4 @@
+
 #include "unreGpu.h"
 
 
@@ -61,6 +62,19 @@ unsigned short* creatGpuData<unsigned short>(const int elemCnt, bool fore_zeros)
 	cudaSafeCall(cudaGetLastError());
 	return (unsigned short*)gpudata;
 }
+template<>
+float3* creatGpuData<float3>(const int elemCnt, bool fore_zeros)
+{
+	void*gpudata = NULL;
+	cudaMalloc((void**)&gpudata, elemCnt * sizeof(float3));
+	if (fore_zeros)
+	{
+		cudaMemset(gpudata, 0, elemCnt * sizeof(float3));
+	}
+	cudaSafeCall(cudaGetLastError());
+	return (float3*)gpudata;
+}
+
 
 __device__ __forceinline__ void
 pack_tsdf(float tsdf, int weight, short2& value)
@@ -210,16 +224,16 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 	float v_g_y = (y + 0.5f) * cell_size.y;
 	float v_g_z = (0 + 0.5f) * cell_size.z;
 
-	float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z);
-	float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z);
-	float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z);
+	float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) + t.x;
+	float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) + t.y;
+	float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z) + t.z;
 	
 	float v_part_norm = v_x * v_x + v_y * v_y + v_z*v_z;
 	//v_part_norm /= 1e6;
 
-	v_z = v_z + t.z;
-	v_x = (v_x + t.x) * intr_fx;
-	v_y = (v_y + t.y) * intr_fy;
+	//v_z = v_z + t.z;
+	v_x = (v_x) * intr_fx;
+	v_y = (v_y) * intr_fy;
 	
 	float z_scaled = 0;
 
@@ -254,8 +268,10 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 		if (coo.x >= 0 && coo.y >= 0 && coo.x < cols && coo.y < rows)         //6
 		{
 			float distance_sqr = v_part_norm;
-			float distance = sqrtf(distance_sqr);;
-			float weight = distance / (coo.x - cols / 2)*(coo.x - cols / 2) + (coo.y - rows / 2)*(coo.y - rows / 2);
+			float distance = sqrtf(distance_sqr);
+			float radius = sqrtf((coo.x - cols / 2)*(coo.x - cols / 2) + (coo.y - rows / 2)*(coo.y - rows / 2));
+			//float weight = radius/ distance;
+			float weight =  1.f/ radius;
 			float Dp_scaled = depth_raw[coo.y*cols + coo.x]; //meters
 
 			float sdf = Dp_scaled - distance;
@@ -263,7 +279,7 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 
 			if (Dp_scaled != 0 && sdf >= -tranc_dist) //meters
 			{
-				pack_tsdf(sdf, weight, *pos);
+				pack_tsdf(fmin(1.f, sdf / tranc_dist), weight, *pos);
 				//pos->x = 32000;
 				//pos->y = 32000;
 				//pack_tsdf(0.f, 0.f, *pos);
