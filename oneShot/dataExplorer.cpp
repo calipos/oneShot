@@ -10,7 +10,8 @@
 #ifdef OPENCV_SHOW
 #include "opencv2/opencv.hpp"
 #endif
-
+//#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
+#define CHECK_CUDA_RAYCAST
 #define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
@@ -294,6 +295,10 @@ namespace unre
 			Mat33 R_( std::get<0>(stream2Extr[2]).ptr<double>(0), 
 				std::get<0>(stream2Extr[2]).ptr<double>(1), 
 				std::get<0>(stream2Extr[2]).ptr<double>(2)	);
+			cv::Mat R_inv_cv = std::get<0>(stream2Extr[2]).inv();
+			Mat33 R_inv(R_inv_cv.ptr<double>(0),
+				R_inv_cv.ptr<double>(1),
+				R_inv_cv.ptr<double>(2));
 			float3 t_;
 			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0];
 			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0];
@@ -305,28 +310,32 @@ namespace unre
 			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_,10, volume, scaledDepth);
+				R_, t_,30, volume, scaledDepth);
 			{
+
 #ifdef CHECK_CUDA_VOXEL
 				short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
 				cv::Mat cpu_data(show2.rows, show2.cols, CV_32FC1);
 				cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
-				float3 cell_size; cell_size.x = 1.; cell_size.y = 1.; cell_size.z = 1.;
+				float3 cell_size; 
+				cell_size.x = 1.*VOLUME_SIZE_X/ VOLUME_X; 
+				cell_size.y = 1.*VOLUME_SIZE_Y / VOLUME_Y; 
+				cell_size.z = 1.*VOLUME_SIZE_Z / VOLUME_Z;
 				auto& R = R_;
 				auto& t = t_;
 				if (false)//cpu模拟cuda体素过程
 				{				
-					for (int y = 0; y < VOLUME_Y; y++)for (int x = 0; x < VOLUME_X; x++)
+					for (int y = VOLUME_Y/2; y < VOLUME_Y; y++)for (int x = VOLUME_X/2; x < VOLUME_X; x++)
 					{
 						float v_g_x = (x + 0.5f) * cell_size.x;
 						float v_g_y = (y + 0.5f) * cell_size.y;
-						float v_g_z = (0 + 0.5f) * cell_size.z;
+						float v_g_z = (0.5f) * cell_size.z;
 
 						float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) + t.x;
 						float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) + t.y;
 						float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z) + t.z;
 
-						float v_part_norm = v_x * v_x + v_y * v_y + v_z*v_z;
+						float v_part_norm = v_x * v_x + v_y * v_y;
 
 						//v_z = v_z + t.z;
 						v_x = (v_x ) * stream2Intr[1]->ptr<double>(0)[2];
@@ -339,19 +348,21 @@ namespace unre
 						float tranc_dist = 30.;
 						float tranc_dist_inv = 1.0f / tranc_dist;
 
-						short2* pos = volume___ + y*VOLUME_X + x;
 						int elem_step = VOLUME_X * VOLUME_Y;
+						short2* pos = volume___ + y*VOLUME_X + x;
+						
 
 						//#pragma unroll
-						for (int z = 0; z < VOLUME_Z;
+						for (int z = 0; z <VOLUME_Z;
 							++z,
-							v_g_z += cell_size.z,
-							z_scaled += R.data[2].z*cell_size.z,
-							v_x += Rcurr_inv_0_z_scaled,
-							v_y += Rcurr_inv_1_z_scaled,
+							v_g_z -= cell_size.z,
+							z_scaled -= R.data[2].z*cell_size.z,
+							v_x -= Rcurr_inv_0_z_scaled,
+							v_y -= Rcurr_inv_1_z_scaled,
 							pos += elem_step)
 						{
-							float inv_z = 1.0f / (v_z + z_scaled);
+							float this_v_z = v_z - z_scaled;
+							float inv_z = 1.0f / (this_v_z);
 							if (inv_z < 0)
 								continue;
 
@@ -364,252 +375,270 @@ namespace unre
 
 							if (coo.x >= 0 && coo.y >= 0 && coo.x < 1080 && coo.y < 720)         //6
 							{
-								float distance_sqr = v_part_norm;
+								//v_part_norm += this_v_z*this_v_z;
+								float distance_sqr = v_part_norm+ this_v_z*this_v_z;
 								float weight = 1. / (coo.x - 1080 / 2)*(coo.x - 1080 / 2) + (coo.y - 720 / 2)*(coo.y - 720 / 2);
 								float Dp_scaled = cpu_data.ptr<float>(coo.y)[coo.x]; //meters
 								float distance = sqrtf(distance_sqr);
 								float sdf = (Dp_scaled - distance);																
 								if (Dp_scaled != 0 && sdf >= -tranc_dist) //meters
 								{
+									
 									pos->x = std::max(-32767, std::min(32767, int(fmin(1.f,sdf/ tranc_dist) * 32767)));
 									pos->y = weight * 32767;
+									LOG(INFO) << pos->x;
 								}
 							}
 						}
+						//break;
 					}
 				}
-				if (false)//cpu显示cuda的体素结果
+				if (true)//cpu显示cuda的体素结果
 				{
 					cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
-					for (size_t z = 0; z < VOLUME_Z; z++)
+					for (int z = 0; z<VOLUME_Z; z++)
 					{
 						cv::Mat shows1 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
 						cv::Mat shows2 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
 						short*temp1 = (short*)shows1.data;
 						short*temp2 = (short*)shows2.data;
+						
 						for (size_t i = 0; i < VOLUME_X*VOLUME_Y; i++)
 						{
+							
 							temp1[i] = volume___[z * VOLUME_X * VOLUME_Y + i].x;
 							temp2[i] = volume___[z * VOLUME_X * VOLUME_Y + i].y;
 						}
+						//LOG(INFO) << shows1.ptr<short>(256)[256];
 						cv::imshow("123", shows1);
-						cv::imshow("1234", shows2);
-						cv::waitKey(12);
+						//cv::imshow("1234", shows2);
+						cv::waitKey(20);
 					}
 				}				
 #endif			
 			}
 			float3*dev_vmap = creatGpuData<float3>(1080*720,true);
+			
 			raycast(volume, dev_vmap,720,1080,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2],
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_,10);
-#define CHECK_CUDA_RAYCAST
+				R_inv, t_,10);
+
 #ifdef CHECK_CUDA_RAYCAST
 			short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
 			cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
-			cv::Mat host_vmap = cv::Mat::zeros(720, 1080, CV_32FC3);
-
-			for (int i = 0; i < 720; i++)for (int j = 0; j < 1080; j++)
+			cv::Mat host_vmap = cv::Mat::zeros(720, 1080, CV_64FC3);
+			if (true) //cpu仿真raycast
 			{
-				cv::Mat ray_start = cv::Mat(3, 1, CV_32FC1);
-				ray_start.ptr<float>(0)[0] = t_.x;
-				ray_start.ptr<float>(1)[0] = t_.y;
-				ray_start.ptr<float>(2)[0] = t_.z;
-
-				cv::Mat cmos_pos = cv::Mat(3, 1, CV_32FC1);
-				cmos_pos.ptr<float>(0)[0] = (j - stream2Intr[1]->ptr<double>(0)[2]) / stream2Intr[1]->ptr<double>(0)[0];
-				cmos_pos.ptr<float>(1)[0] = (i - stream2Intr[1]->ptr<double>(1)[2]) / stream2Intr[1]->ptr<double>(1)[1];
-				cmos_pos.ptr<float>(2)[0] = 1.0;
-
-				cv::Mat ray_next = std::get<0>(stream2Extr[1])*cmos_pos + ray_start;
-
-				cv::Mat ray_dir = cv::Mat(ray_next - ray_start);
-				float mod = ray_dir.ptr<float>(0)[0] * ray_dir.ptr<float>(0)[0]
-					+ ray_dir.ptr<float>(1)[0] * ray_dir.ptr<float>(1)[0]
-					+ ray_dir.ptr<float>(2)[0] * ray_dir.ptr<float>(2)[0];
-				mod = sqrtf(mod);
-				ray_dir /= mod;
-
-				
-				float txmin = ((ray_dir.ptr<float>(0)[0] > 0 ? 0.f : VOLUME_SIZE_X) - ray_start.ptr<float>(0)[0]) / ray_dir.ptr<float>(0)[0];
-				float tymin = ((ray_dir.ptr<float>(1)[0] > 0 ? 0.f : VOLUME_SIZE_Y) - ray_start.ptr<float>(1)[0]) / ray_dir.ptr<float>(1)[0];
-				float tzmin = ((ray_dir.ptr<float>(2)[0] > 0 ? 0.f : VOLUME_SIZE_Z) - ray_start.ptr<float>(2)[0]) / ray_dir.ptr<float>(2)[0];
-				float time_start_volume = fmax(fmax(txmin, tymin), tzmin);
-				float txmax = ((ray_dir.ptr<float>(0)[0] <= 0 ? 0.f : VOLUME_SIZE_X) - ray_start.ptr<float>(0)[0]) / ray_dir.ptr<float>(0)[0];
-				float tymax = ((ray_dir.ptr<float>(1)[0] <= 0 ? 0.f : VOLUME_SIZE_Y) - ray_start.ptr<float>(1)[0]) / ray_dir.ptr<float>(1)[0];
-				float tzmax = ((ray_dir.ptr<float>(2)[0] <= 0 ? 0.f : VOLUME_SIZE_Z) - ray_start.ptr<float>(2)[0]) / ray_dir.ptr<float>(2)[0];
-				float time_exit_volume = fmin(fmin(txmax, tymax), tzmax);
-
-				const float min_dist = 0.f;         //in meters
-				time_start_volume = fmax(time_start_volume, min_dist);
-				if (time_start_volume >= time_exit_volume)
-					continue;
-
-				float time_curr = time_start_volume;
-				cv::Mat voxelPos = (ray_start + ray_dir * time_curr);
-				int g_x = std::max(0, std::min(int(voxelPos.ptr<float>(0)[0]/ VOLUME_SIZE_X), VOLUME_X - 1));
-				int g_y = std::max(0, std::min(int(voxelPos.ptr<float>(1)[0] / VOLUME_SIZE_Y), VOLUME_Y - 1));
-				int g_z = std::max(0, std::min(int(voxelPos.ptr<float>(2)[0] / VOLUME_SIZE_Z), VOLUME_Z - 1));
-
-				float tsdf = volume___[g_z*VOLUME_X*VOLUME_Y + g_y*VOLUME_X + g_x].x*1.0/SHRT_MAX;
-				//infinite loop guard
-				const float max_time = 3 * (VOLUME_SIZE_X + VOLUME_SIZE_Y + VOLUME_SIZE_Z);
-
-				float time_step = 0.8*10;//**
-				for (; time_curr < max_time; time_curr += time_step)
+				for (int i = 0; i < 720; i++)for (int j = 0; j < 1080; j++)
 				{
-					float tsdf_prev = tsdf;
+					if ((i+j)%2)
+					{
+						continue;
+					}
+					cv::Mat ray_start = cv::Mat(3, 1, CV_64FC1);
+					ray_start.ptr<double>(0)[0] = t_.x;
+					ray_start.ptr<double>(1)[0] = t_.y;
+					ray_start.ptr<double>(2)[0] = t_.z;
 
-					cv::Mat voxelPos = (ray_start + ray_dir * (time_curr + time_step));
-					int g_x = std::max(0, std::min(int(voxelPos.ptr<float>(0)[0] / VOLUME_SIZE_X), VOLUME_X - 1));
-					int g_y = std::max(0, std::min(int(voxelPos.ptr<float>(1)[0] / VOLUME_SIZE_Y), VOLUME_Y - 1));
-					int g_z = std::max(0, std::min(int(voxelPos.ptr<float>(2)[0] / VOLUME_SIZE_Z), VOLUME_Z - 1));
-					if (!(g_x >= 0 && g_y >= 0 && g_z >= 0 && g_x < VOLUME_X && g_y < VOLUME_Y && g_z < VOLUME_Z))
+					cv::Mat cmos_pos = cv::Mat(3, 1, CV_64FC1);
+					cmos_pos.ptr<double>(0)[0] = (j - stream2Intr[1]->ptr<double>(0)[2]) / stream2Intr[1]->ptr<double>(0)[0];
+					cmos_pos.ptr<double>(1)[0] = (i - stream2Intr[1]->ptr<double>(1)[2]) / stream2Intr[1]->ptr<double>(1)[1];
+					cmos_pos.ptr<double>(2)[0] = 1.0;
+
+					cv::Mat ray_next = R_inv_cv*(cmos_pos - ray_start);
+
+					cv::Mat ray_dir = cv::Mat(ray_next - ray_start);
+					double mod = ray_dir.ptr<double>(0)[0] * ray_dir.ptr<double>(0)[0]
+						+ ray_dir.ptr<double>(1)[0] * ray_dir.ptr<double>(1)[0]
+						+ ray_dir.ptr<double>(2)[0] * ray_dir.ptr<double>(2)[0];
+					mod = sqrtf(mod);
+					ray_dir /= mod;
+
+
+					double txmin = ((ray_dir.ptr<double>(0)[0] > 0 ? 0.f : VOLUME_SIZE_X) - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+					double tymin = ((ray_dir.ptr<double>(1)[0] > 0 ? 0.f : VOLUME_SIZE_Y) - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+					double tzmin = ((ray_dir.ptr<double>(2)[0] <= 0 ? 0.f : -VOLUME_SIZE_Z) - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+					double time_start_volume = fmax(fmax(txmin, tymin), tzmin);
+					double txmax = ((ray_dir.ptr<double>(0)[0] <= 0 ? 0.f : VOLUME_SIZE_X) - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+					double tymax = ((ray_dir.ptr<double>(1)[0] <= 0 ? 0.f : VOLUME_SIZE_Y) - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+					double tzmax = ((ray_dir.ptr<double>(2)[0] > 0 ? 0.f : -VOLUME_SIZE_Z) - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+					double time_exit_volume = fmin(fmin(txmax, tymax), tzmax);
+
+					const double min_dist = 0.f;         //in meters
+					time_start_volume = fmax(time_start_volume, min_dist);
+					if (time_start_volume >= time_exit_volume)
 						continue;
 
-					tsdf = volume___[g_z*VOLUME_X*VOLUME_Y + g_y*VOLUME_X + g_x].x*1.0 / SHRT_MAX;;
+					double time_curr = time_start_volume;
+					cv::Mat voxelPos = (ray_start + ray_dir * time_curr);
+					int g_x = std::max(0, std::min(int(voxelPos.ptr<double>(0)[0] / VOLUME_SIZE_X* VOLUME_X), VOLUME_X - 1));
+					int g_y = std::max(0, std::min(int(voxelPos.ptr<double>(1)[0] / VOLUME_SIZE_Y*VOLUME_Y), VOLUME_Y - 1));
+					int g_z = std::max(0, std::min(int(voxelPos.ptr<double>(2)[0] / -VOLUME_SIZE_Z*VOLUME_Z), VOLUME_Z - 1));
 
-					if (tsdf_prev < 0.f && tsdf > 0.f)
-						break;
+					double tsdf = volume___[g_z*VOLUME_X*VOLUME_Y + g_y*VOLUME_X + g_x].x*1.0 / SHRT_MAX;
+					//infinite loop guard
+					const double max_time = 3 * (VOLUME_SIZE_X + VOLUME_SIZE_Y + VOLUME_SIZE_Z);
 
-					if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
+					double time_step = 0.8 * 10;//**
+					for (; time_curr < max_time; time_curr += time_step)
 					{
-						float Ftdt = 0.0;
-						cv::Mat thisVoxelPos = (ray_start + ray_dir * (time_curr + time_step));
-						int this_g_x = std::max(0, std::min(int(thisVoxelPos.ptr<float>(0)[0] / VOLUME_SIZE_X), VOLUME_X - 1));
-						int this_g_y = std::max(0, std::min(int(thisVoxelPos.ptr<float>(1)[0] / VOLUME_SIZE_Y), VOLUME_Y - 1));
-						int this_g_z = std::max(0, std::min(int(thisVoxelPos.ptr<float>(2)[0] / VOLUME_SIZE_Z), VOLUME_Z - 1));
-						if (this_g_x <= 0 || this_g_x >= VOLUME_X - 1)
-							Ftdt = 0.0;
-						if (this_g_y <= 0 || this_g_y >= VOLUME_Y - 1)
-							Ftdt = 0.0;
-						if (this_g_z <= 0 || this_g_z >= VOLUME_Z - 1)
-							Ftdt = 0.0;
-						float this_vx = (this_g_x + 0.5f) * VOLUME_SIZE_X;
-						float this_vy = (this_g_y + 0.5f) * VOLUME_SIZE_Y;
-						float this_vz = (this_g_z + 0.5f) * VOLUME_SIZE_Z;
+						double tsdf_prev = tsdf;
 
-						this_g_x = (thisVoxelPos.ptr<float>(0)[0] < this_vx) ? (this_g_x - 1) : this_g_x;
-						this_g_y = (thisVoxelPos.ptr<float>(1)[0] < this_vy) ? (this_g_y - 1) : this_g_y;
-						this_g_z = (thisVoxelPos.ptr<float>(2)[0] < this_vz) ? (this_g_z - 1) : this_g_z;
-
-						float a = (thisVoxelPos.ptr<float>(0)[0] - (this_g_x + 0.5f) * VOLUME_SIZE_X) / VOLUME_SIZE_X;
-						float b = (thisVoxelPos.ptr<float>(1)[0] - (this_g_y + 0.5f) * VOLUME_SIZE_Y) / VOLUME_SIZE_Y;
-						float c = (thisVoxelPos.ptr<float>(2)[0] - (this_g_z + 0.5f) * VOLUME_SIZE_Z) / VOLUME_SIZE_Z;
-
-						Ftdt = 
-							volume___[this_g_z*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * (1 - b) * (1 - c) +
-							volume___[(this_g_z+1)*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * (1 - b) * c +
-							volume___[this_g_z*VOLUME_X*VOLUME_Y + (this_g_y+1)*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * b * (1 - c) +
-							volume___[(this_g_z+1)*VOLUME_X*VOLUME_Y + (this_g_y+1)*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * b * c +
-							volume___[this_g_z*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x+1].x*1.0 / SHRT_MAX * a * (1 - b) * (1 - c) +
-							volume___[(this_g_z + 1)*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x+1].x*1.0 / SHRT_MAX * a * (1 - b) * c +
-							volume___[this_g_z*VOLUME_X*VOLUME_Y + (this_g_y + 1)*VOLUME_X + this_g_x+1].x*1.0 / SHRT_MAX * a * b * (1 - c) +
-							volume___[(this_g_z + 1)*VOLUME_X*VOLUME_Y + (this_g_y + 1)*VOLUME_X + this_g_x + 1].x*1.0 / SHRT_MAX * a * b * c;
-						if (Ftdt==0)
-						{
+						cv::Mat voxelPos = (ray_start + ray_dir * (time_curr + time_step));
+						int g_x = std::max(0, std::min(int(voxelPos.ptr<double>(0)[0] / VOLUME_SIZE_X*VOLUME_X), VOLUME_X - 1));
+						int g_y = std::max(0, std::min(int(voxelPos.ptr<double>(1)[0] / VOLUME_SIZE_Y*VOLUME_Y), VOLUME_Y - 1));
+						int g_z = std::max(0, std::min(int(voxelPos.ptr<double>(2)[0] / -VOLUME_SIZE_Z*VOLUME_Z), VOLUME_Z - 1));
+						if (!(g_x >= 0 && g_y >= 0 && g_z >= 0 && g_x < VOLUME_X && g_y < VOLUME_Y && g_z < VOLUME_Z))
 							continue;
-						}
 
+						tsdf = volume___[g_z*VOLUME_X*VOLUME_Y + g_y*VOLUME_X + g_x].x*1.0 / SHRT_MAX;;
 
+						if (tsdf_prev < 0.f && tsdf > 0.f)
+							break;
 
-						float Ft = 0.0;
-						cv::Mat thisVoxelPos2 = (ray_start + ray_dir * (time_curr));
-						int this2_g_x = std::max(0, std::min(int(thisVoxelPos2.ptr<float>(0)[0] / VOLUME_SIZE_X), VOLUME_X - 1));
-						int this2_g_y = std::max(0, std::min(int(thisVoxelPos2.ptr<float>(1)[0] / VOLUME_SIZE_Y), VOLUME_Y - 1));
-						int this2_g_z = std::max(0, std::min(int(thisVoxelPos2.ptr<float>(2)[0] / VOLUME_SIZE_Z), VOLUME_Z - 1));
-						if (this2_g_x <= 0 || this2_g_x >= VOLUME_X - 1)
-							Ft = 0.0;
-						if (this2_g_y <= 0 || this2_g_y >= VOLUME_Y - 1)
-							Ft = 0.0;
-						if (this2_g_z <= 0 || this2_g_z >= VOLUME_Z - 1)
-							Ft = 0.0;
-						float this2_vx = (this2_g_x + 0.5f) * VOLUME_SIZE_X;
-						float this2_vy = (this2_g_y + 0.5f) * VOLUME_SIZE_Y;
-						float this2_vz = (this2_g_z + 0.5f) * VOLUME_SIZE_Z;
-
-						this2_g_x = (thisVoxelPos2.ptr<float>(0)[0] < this2_vx) ? (this2_g_x - 1) : this2_g_x;
-						this2_g_y = (thisVoxelPos2.ptr<float>(1)[0] < this2_vy) ? (this2_g_y - 1) : this2_g_y;
-						this2_g_z = (thisVoxelPos2.ptr<float>(2)[0] < this2_vz) ? (this2_g_z - 1) : this2_g_z;
-
-						float a2 = (thisVoxelPos2.ptr<float>(0)[0] - (this2_g_x + 0.5f) * VOLUME_SIZE_X) / VOLUME_SIZE_X;
-						float b2 = (thisVoxelPos2.ptr<float>(1)[0] - (this2_g_y + 0.5f) * VOLUME_SIZE_Y) / VOLUME_SIZE_Y;
-						float c2 = (thisVoxelPos2.ptr<float>(2)[0] - (this2_g_z + 0.5f) * VOLUME_SIZE_Z) / VOLUME_SIZE_Z;
-
-						Ft =
-							volume___[this2_g_z*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * (1 - b2) * (1 - c2) +
-							volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * (1 - b2) * c2 +
-							volume___[this2_g_z*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * b2 * (1 - c2) +
-							volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * b2 * c2 +
-							volume___[this2_g_z*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * (1 - b2) * (1 - c2) +
-							volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * (1 - b2) * c2 +
-							volume___[this2_g_z*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * b2 * (1 - c2) +
-							volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * b2 * c2;
-						if (Ft == 0)
+						if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
 						{
-							continue;
+							double Ftdt = 0.0;
+							cv::Mat thisVoxelPos = (ray_start + ray_dir * (time_curr + time_step));
+							int this_g_x = std::max(0, std::min(int(voxelPos.ptr<double>(0)[0] / VOLUME_SIZE_X*VOLUME_X), VOLUME_X - 1));
+							int this_g_y = std::max(0, std::min(int(voxelPos.ptr<double>(1)[0] / VOLUME_SIZE_Y*VOLUME_Y), VOLUME_Y - 1));
+							int this_g_z = std::max(0, std::min(int(voxelPos.ptr<double>(2)[0] / -VOLUME_SIZE_Z*VOLUME_Z), VOLUME_Z - 1));
+							if (this_g_x <= 0 || this_g_x >= VOLUME_X - 1)
+								Ftdt = 0.0;
+							if (this_g_y <= 0 || this_g_y >= VOLUME_Y - 1)
+								Ftdt = 0.0;
+							if (this_g_z <= 0 || this_g_z >= VOLUME_Z - 1)
+								Ftdt = 0.0;
+							double this_vx = (this_g_x + 0.5f) * VOLUME_SIZE_X/VOLUME_X;
+							double this_vy = (this_g_y + 0.5f) * VOLUME_SIZE_Y/VOLUME_Y;
+							double this_vz = -(this_g_z + 0.5f) * VOLUME_SIZE_Z/VOLUME_Z;
+
+							this_g_x = (thisVoxelPos.ptr<double>(0)[0] < this_vx) ? (this_g_x - 1) : this_g_x;
+							this_g_y = (thisVoxelPos.ptr<double>(1)[0] < this_vy) ? (this_g_y - 1) : this_g_y;
+							this_g_z = (thisVoxelPos.ptr<double>(2)[0] < this_vz) ? (this_g_z - 1) : this_g_z;
+
+							double a = (thisVoxelPos.ptr<double>(0)[0] - (this_g_x + 0.5f) * VOLUME_SIZE_X / VOLUME_X) / VOLUME_SIZE_X * VOLUME_X;
+							double b = (thisVoxelPos.ptr<double>(1)[0] - (this_g_y + 0.5f) * VOLUME_SIZE_Y / VOLUME_Y) / VOLUME_SIZE_Y * VOLUME_Y;
+							double c = -(thisVoxelPos.ptr<double>(2)[0] - (this_g_z + 0.5f) * VOLUME_SIZE_Z / VOLUME_Z) / VOLUME_SIZE_Z * VOLUME_Z;
+
+							Ftdt =
+								volume___[this_g_z*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * (1 - b) * (1 - c) +
+								volume___[(this_g_z + 1)*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * (1 - b) * c +
+								volume___[this_g_z*VOLUME_X*VOLUME_Y + (this_g_y + 1)*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * b * (1 - c) +
+								volume___[(this_g_z + 1)*VOLUME_X*VOLUME_Y + (this_g_y + 1)*VOLUME_X + this_g_x].x*1.0 / SHRT_MAX * (1 - a) * b * c +
+								volume___[this_g_z*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x + 1].x*1.0 / SHRT_MAX * a * (1 - b) * (1 - c) +
+								volume___[(this_g_z + 1)*VOLUME_X*VOLUME_Y + this_g_y*VOLUME_X + this_g_x + 1].x*1.0 / SHRT_MAX * a * (1 - b) * c +
+								volume___[this_g_z*VOLUME_X*VOLUME_Y + (this_g_y + 1)*VOLUME_X + this_g_x + 1].x*1.0 / SHRT_MAX * a * b * (1 - c) +
+								volume___[(this_g_z + 1)*VOLUME_X*VOLUME_Y + (this_g_y + 1)*VOLUME_X + this_g_x + 1].x*1.0 / SHRT_MAX * a * b * c;
+							if (Ftdt == 0)
+							{
+								continue;
+							}
+
+
+
+							double Ft = 0.0;
+							cv::Mat thisVoxelPos2 = (ray_start + ray_dir * (time_curr));
+							int this2_g_x = std::max(0, std::min(int(thisVoxelPos2.ptr<double>(0)[0] / VOLUME_SIZE_X), VOLUME_X - 1));
+							int this2_g_y = std::max(0, std::min(int(thisVoxelPos2.ptr<double>(1)[0] / VOLUME_SIZE_Y), VOLUME_Y - 1));
+							int this2_g_z = std::max(0, std::min(int(thisVoxelPos2.ptr<double>(2)[0] / -VOLUME_SIZE_Z*VOLUME_Z), VOLUME_Z - 1));
+							if (this2_g_x <= 0 || this2_g_x >= VOLUME_X - 1)
+								Ft = 0.0;
+							if (this2_g_y <= 0 || this2_g_y >= VOLUME_Y - 1)
+								Ft = 0.0;
+							if (this2_g_z <= 0 || this2_g_z >= VOLUME_Z - 1)
+								Ft = 0.0;
+							double this2_vx = (this2_g_x + 0.5f) * VOLUME_SIZE_X / VOLUME_X;
+							double this2_vy = (this2_g_y + 0.5f) * VOLUME_SIZE_Y / VOLUME_Y;
+							double this2_vz = -(this2_g_z + 0.5f) * VOLUME_SIZE_Z / VOLUME_Z;
+
+							this2_g_x = (thisVoxelPos2.ptr<double>(0)[0] < this2_vx) ? (this2_g_x - 1) : this2_g_x;
+							this2_g_y = (thisVoxelPos2.ptr<double>(1)[0] < this2_vy) ? (this2_g_y - 1) : this2_g_y;
+							this2_g_z = (thisVoxelPos2.ptr<double>(2)[0] < this2_vz) ? (this2_g_z - 1) : this2_g_z;
+
+
+							double a2 = (thisVoxelPos2.ptr<double>(0)[0] - (this2_g_x + 0.5f) * VOLUME_SIZE_X / VOLUME_X) / VOLUME_SIZE_X * VOLUME_X;
+							double b2 = (thisVoxelPos2.ptr<double>(1)[0] - (this2_g_y + 0.5f) * VOLUME_SIZE_Y / VOLUME_Y) / VOLUME_SIZE_Y * VOLUME_Y;
+							double c2 = -(thisVoxelPos2.ptr<double>(2)[0] - (this2_g_z + 0.5f) * VOLUME_SIZE_Z / VOLUME_Z) / VOLUME_SIZE_Z * VOLUME_Z;
+
+							Ft =
+								volume___[this2_g_z*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * (1 - b2) * (1 - c2) +
+								volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * (1 - b2) * c2 +
+								volume___[this2_g_z*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * b2 * (1 - c2) +
+								volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x].x*1.0 / SHRT_MAX * (1 - a2) * b2 * c2 +
+								volume___[this2_g_z*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * (1 - b2) * (1 - c2) +
+								volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + this2_g_y*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * (1 - b2) * c2 +
+								volume___[this2_g_z*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * b2 * (1 - c2) +
+								volume___[(this2_g_z + 1)*VOLUME_X*VOLUME_Y + (this2_g_y + 1)*VOLUME_X + this2_g_x + 1].x*1.0 / SHRT_MAX * a2 * b2 * c2;
+							if (Ft == 0)
+							{
+								continue;
+							}
+							double Ts = time_curr - time_step * Ft / (Ftdt - Ft);
+
+							cv::Mat temp = (ray_start + ray_dir * Ts);
+							host_vmap.at<cv::Vec3d>(i, j)[0] = (temp).ptr<double>(0)[0];
+							host_vmap.at<cv::Vec3d>(i, j)[1] = (temp).ptr<double>(1)[0];
+							host_vmap.at<cv::Vec3d>(i, j)[2] = (temp).ptr<double>(2)[0];
 						}
-
-
-						float Ts = time_curr - time_step * Ft / (Ftdt - Ft);
-
-						cv::Mat temp = (ray_start + ray_dir * Ts);
-						host_vmap.at<cv::Vec3f>(i, j)[0] = (temp).ptr<float>(0)[0];
-						host_vmap.at<cv::Vec3f>(i, j)[1] = (temp).ptr<float>(1)[0];
-						host_vmap.at<cv::Vec3f>(i, j)[2] = (temp).ptr<float>(2)[0];
-
 					}
-
 				}
 			}
-
+			
 
 
 #endif // CHECK_CUDA_RAYCAST
 
 #ifdef PCL_SHOW
-			//pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-			//cloud->width = 50;
-			//cloud->height = 10;
-			//cloud->is_dense = false;  
-			//cloud->points.resize(cloud->width * cloud->height);
-			//for (size_t i = 0; i < cloud->points.size(); ++i)
+			//pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sample(new pcl::PointCloud<pcl::PointXYZ>);
+			//cloud_sample->width = 50;
+			//cloud_sample->height = 10;
+			//cloud_sample->is_dense = false;
+			//cloud_sample->points.resize(cloud_sample->width * cloud_sample->height);
+			//for (size_t i = 0; i < cloud_sample->points.size(); ++i)
 			//{
-			//	cloud->points[i].x = 32 * rand() / (RAND_MAX + 1.0f);
-			//	cloud->points[i].y = 32 * rand() / (RAND_MAX + 1.0f);
-			//	cloud->points[i].z = 32 * rand() / (RAND_MAX + 1.0f);
+			//	cloud_sample->points[i].x = 32 * rand() / (RAND_MAX + 1.0f);
+			//	cloud_sample->points[i].y = 32 * rand() / (RAND_MAX + 1.0f);
+			//	cloud_sample->points[i].z = 32.0 * rand() / (RAND_MAX + 1.0f);
 			//}
-			//pcl::visualization::CloudViewer viewer("Viewer");
-			//viewer.showCloud(cloud);
-			//while (!viewer.wasStopped())
+			//pcl::visualization::CloudViewer viewer_sample("Viewer_sample");
+			//viewer_sample.showCloud(cloud_sample);
+			//while (!viewer_sample.wasStopped())
 			//{
 			//}
-
-			
+						
 			float3* host_vmap_m = new float3[1080 * 720];
 			cudaMemcpy(host_vmap_m, dev_vmap, 1080 * 720 * sizeof(float3), cudaMemcpyDeviceToHost);
 			int point_cnt = 0;
+			cv::Mat xxx_ = cv::Mat::zeros(720,1080,CV_32FC3);
 			for (size_t i = 0; i < 1080 * 720; i++)
 			{
-				if (host_vmap_m[i].x != 0 && host_vmap_m[i].y != 0 && host_vmap_m[i].z != 0)
+				xxx_.at<cv::Vec3f>(i / 1080, i % 1080)[0] = host_vmap_m[i].x;
+				xxx_.at<cv::Vec3f>(i / 1080, i % 1080)[1] = host_vmap_m[i].y;
+				xxx_.at<cv::Vec3f>(i / 1080, i % 1080)[2] = host_vmap_m[i].z;
+				
+				//if (!(host_vmap_m[i].x == 0.f && host_vmap_m[i].y == 0.f && host_vmap_m[i].z == 0.f))
 				{
 					point_cnt++;
 				}
 			}
 			pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 			cloud->width = 1;
-			cloud->height = point_cnt;
+			cloud->height =  point_cnt;
 			cloud->is_dense = false;
 			cloud->points.resize(cloud->width * cloud->height);
 			point_cnt = 0;
 			for (size_t i = 0; i < 1080 * 720; i++)
 			{
-				if (host_vmap_m[i].x != 0 && host_vmap_m[i].y != 0 && host_vmap_m[i].z != 0)
+				//if (!(host_vmap_m[i].x == 0 && host_vmap_m[i].y == 0 && host_vmap_m[i].z == 0))
 				{
-					cloud->points[point_cnt].x = host_vmap_m[i].x;
-					cloud->points[point_cnt].y = host_vmap_m[i].y;
-					cloud->points[point_cnt].z = host_vmap_m[i].z;
+					//cloud->points[point_cnt].x = host_vmap_m[i].x;
+					//cloud->points[point_cnt].y = host_vmap_m[i].y;
+					//cloud->points[point_cnt].z = host_vmap_m[i].z;
+					cloud->points[point_cnt].x = host_vmap.at<cv::Vec3d>(point_cnt/1080, point_cnt%1080)[0]-90;
+					cloud->points[point_cnt].y = host_vmap.at<cv::Vec3d>(point_cnt / 1080, point_cnt % 1080)[1]-90;
+					cloud->points[point_cnt].z = host_vmap.at<cv::Vec3d>(point_cnt / 1080, point_cnt % 1080)[2]+200;
 					point_cnt++;
 				}
 			}
@@ -873,16 +902,31 @@ namespace unre
 		}
 
 		std::vector<cv::Point3f> true3DPointSet;
+		float true3DPointSet_cx = 0;
+		float true3DPointSet_cy = 0;
 		for (int i = 0; i < chessBoradSize.height; i++)
 		{
 			for (int j = 0; j < chessBoradSize.width; j++)
 			{
 				cv::Point3f tempPoint;
-				tempPoint.x = j * chessUnitSize.width;
-				tempPoint.y = i * chessUnitSize.height;
+				//tempPoint.x = (j ) * chessUnitSize.width;
+				//tempPoint.y = (i ) * chessUnitSize.height;
+				tempPoint.x = (chessBoradSize.width - j - 1) * chessUnitSize.width;
+				tempPoint.y = (chessBoradSize.height - i - 1) * chessUnitSize.height;
 				tempPoint.z = 0;
 				true3DPointSet.push_back(tempPoint);
+				true3DPointSet_cx += tempPoint.x;
+				true3DPointSet_cy += tempPoint.y;
 			}
+		}
+		true3DPointSet_cx /= true3DPointSet.size();
+		true3DPointSet_cy /= true3DPointSet.size();
+		float x_offset = VOLUME_SIZE_X*0.5 - true3DPointSet_cx;
+		float y_offset = VOLUME_SIZE_Y*0.5 - true3DPointSet_cy;
+		for (size_t i = 0; i < true3DPointSet.size(); i++)
+		{
+			true3DPointSet[i].x += x_offset;
+			true3DPointSet[i].y += y_offset;
 		}
 
 		std::vector<cv::Mat*> imgs;

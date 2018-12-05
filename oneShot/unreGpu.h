@@ -109,7 +109,7 @@ enum
 };//mm
 enum 
 {
-	VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512
+	VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024
 };
 const int DIVISOR = 32767;     // SHRT_MAX;
 template<typename Dtype>
@@ -126,7 +126,7 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 void
 raycast(const short2* volume, float3* vmap, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
-	Mat33 R_, float3 t_, float tranc_dist);
+	Mat33 R_inv, float3 t_, float tranc_dist);
 
 
 

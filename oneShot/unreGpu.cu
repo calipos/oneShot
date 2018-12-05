@@ -91,6 +91,13 @@ pack_tsdf(float tsdf, float weight, short2& value)
 	short fixeweight = __float2int_rz(weight * DIVISOR);
 	value = make_short2(fixedp, fixeweight);
 }
+
+__device__ __forceinline__ void
+pack_tsdf(short tsdf, short weight, short2& value)
+{
+	value = make_short2(tsdf, weight);
+}
+
 __device__ __forceinline__ void
 unpack_tsdf(short2 value, float& tsdf, int& weight)
 {
@@ -222,18 +229,16 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 	
 	float v_g_x = (x + 0.5f) * cell_size.x;
 	float v_g_y = (y + 0.5f) * cell_size.y;
-	float v_g_z = (0 + 0.5f) * cell_size.z;
+	float v_g_z = ( 0.5f) * cell_size.z;
 
 	float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) + t.x;
 	float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) + t.y;
 	float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z) + t.z;
 	
-	float v_part_norm = v_x * v_x + v_y * v_y + v_z*v_z;
-	//v_part_norm /= 1e6;
+	float v_part_norm = v_x * v_x + v_y * v_y;
 
-	//v_z = v_z + t.z;
-	v_x = (v_x) * intr_fx;
-	v_y = (v_y) * intr_fy;
+	v_x = (v_x) * intr_cx;
+	v_y = (v_y) * intr_cy;
 	
 	float z_scaled = 0;
 
@@ -242,19 +247,21 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 
 	float tranc_dist_inv = 1.0f / tranc_dist;
 
-	short2* pos = volume + y*VOLUME_X + x;
 	int elem_step = VOLUME_X * VOLUME_Y;
+	short2* pos = volume + y*VOLUME_X + x;
+	
 
 	//#pragma unroll
-	for (int z = 0; z < VOLUME_Z;
+	for (int z = 0; z <VOLUME_Z;
 		++z,
-		v_g_z += cell_size.z,
-		z_scaled += R.data[2].z*cell_size.z,
-		v_x += Rcurr_inv_0_z_scaled,
-		v_y += Rcurr_inv_1_z_scaled,
+		v_g_z -= cell_size.z,
+		z_scaled -= R.data[2].z*cell_size.z,
+		v_x -= Rcurr_inv_0_z_scaled,
+		v_y -= Rcurr_inv_1_z_scaled,
 		pos += elem_step)
 	{
-		float inv_z = 1.0f / (v_z + z_scaled);
+		float this_v_z = v_z - z_scaled;
+		float inv_z = 1.0f / (this_v_z);
 		if (inv_z < 0)
 			continue;
 
@@ -267,23 +274,27 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 
 		if (coo.x >= 0 && coo.y >= 0 && coo.x < cols && coo.y < rows)         //6
 		{
-			float distance_sqr = v_part_norm;
-			float distance = sqrtf(distance_sqr);
+			//v_part_norm += this_z*this_z;
+			float distance_sqr = v_part_norm+ this_v_z*this_v_z;
 			float radius = sqrtf((coo.x - cols / 2)*(coo.x - cols / 2) + (coo.y - rows / 2)*(coo.y - rows / 2));
 			//float weight = radius/ distance;
-			float weight =  1.f/ radius;
-			float Dp_scaled = depth_raw[coo.y*cols + coo.x]; //meters
-
+			float weight = 1.f / radius;
+			float Dp_scaled = depth_raw[coo.y*cols + coo.x]; //mm
+			float distance = sqrtf(distance_sqr);
+			
 			float sdf = Dp_scaled - distance;
 			
-
 			if (Dp_scaled != 0 && sdf >= -tranc_dist) //meters
 			{
-				pack_tsdf(fmin(1.f, sdf / tranc_dist), weight, *pos);
+				pack_tsdf(fmin(1.f, sdf*tranc_dist_inv), weight, *pos);
 				//pos->x = 32000;
 				//pos->y = 32000;
-				//pack_tsdf(0.f, 0.f, *pos);
+				//pack_tsdf(short(sdf), short(0), *pos);
 			}
+		}
+		else
+		{
+			pack_tsdf(1.f, 0, *pos);
 		}
 	}
 }
@@ -309,9 +320,9 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	cudaSafeCall(cudaDeviceSynchronize());
 	
 	float3 cell_size;
-	cell_size.x = VOLUME_SIZE_X / VOLUME_X;
-	cell_size.y = VOLUME_SIZE_Y / VOLUME_Y;
-	cell_size.z = VOLUME_SIZE_Z / VOLUME_Z;
+	cell_size.x = 1.*VOLUME_SIZE_X / VOLUME_X;
+	cell_size.y = 1.*VOLUME_SIZE_Y / VOLUME_Y;
+	cell_size.z = 1.*VOLUME_SIZE_Z / VOLUME_Z;
 
 	//dim3 block(Tsdf::CTA_SIZE_X, Tsdf::CTA_SIZE_Y);
 	dim3 block(16, 16);
@@ -329,21 +340,3 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 }
 
 
-void self_volume(const short* depth_raw, int rows, int cols,
-	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
-	Mat33 R, float3 t, float tranc_dist, short2* volume)
-{
-	float3 cell_size;
-	cell_size.x = VOLUME_SIZE_X / VOLUME_X;
-	cell_size.y = VOLUME_SIZE_Y / VOLUME_Y;
-	cell_size.z = VOLUME_SIZE_Z / VOLUME_Z;
-
-	
-	dim3 block(16, 16);
-	dim3 grid(divUp(VOLUME_X, block.x), divUp(VOLUME_Y, block.y));
-
-
-
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
-}

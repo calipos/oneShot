@@ -148,7 +148,7 @@
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
       <AdditionalIncludeDirectories>$(solutionDir)oneShot\3rdPart;$(solutionDir)oneShot\3rdPart\opencv320\include;$(solutionDir)oneShot\3rdPart\realSenselib\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v8.0\include;$(solutionDir)oneShot\3rdPart\Boost\include\boost-1_64;$(solutionDir)oneShot\3rdPart\Eigen\eigen3;$(solutionDir)oneShot\3rdPart\VTK\include\vtk-8.0;$(solutionDir)oneShot\3rdPart\pcl\include\pcl-1.8;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
