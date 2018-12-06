@@ -295,10 +295,6 @@ namespace unre
 			Mat33 R_( std::get<0>(stream2Extr[2]).ptr<double>(0), 
 				std::get<0>(stream2Extr[2]).ptr<double>(1), 
 				std::get<0>(stream2Extr[2]).ptr<double>(2)	);
-			cv::Mat R_inv_cv = std::get<0>(stream2Extr[2]).inv();
-			Mat33 R_inv(R_inv_cv.ptr<double>(0),
-				R_inv_cv.ptr<double>(1),
-				R_inv_cv.ptr<double>(2));
 			float3 t_;
 			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0];
 			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0];
@@ -310,7 +306,7 @@ namespace unre
 			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_,30, volume, scaledDepth);
+				R_, t_,10, volume, scaledDepth);
 			{
 
 #ifdef CHECK_CUDA_VOXEL
@@ -419,16 +415,16 @@ namespace unre
 			}
 			float3*dev_vmap = creatGpuData<float3>(1080*720,true);
 			
-			raycast(volume, dev_vmap,720,1080,
+			raycastPoint(volume, dev_vmap,720,1080,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2],
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_inv, t_,10);
+				R_, t_,10);
 
 #ifdef CHECK_CUDA_RAYCAST
 			short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
 			cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
 			cv::Mat host_vmap = cv::Mat::zeros(720, 1080, CV_64FC3);
-			if (true) //cpu仿真raycast
+			if (false) //cpu仿真raycast
 			{
 				for (int i = 0; i < 720; i++)for (int j = 0; j < 1080; j++)
 				{
@@ -446,9 +442,9 @@ namespace unre
 					cmos_pos.ptr<double>(1)[0] = (i - stream2Intr[1]->ptr<double>(1)[2]) / stream2Intr[1]->ptr<double>(1)[1];
 					cmos_pos.ptr<double>(2)[0] = 1.0;
 
-					cv::Mat ray_next = R_inv_cv*(cmos_pos - ray_start);
+					cv::Mat ray_next = std::get<0>(stream2Extr[2])*cmos_pos + ray_start;
 
-					cv::Mat ray_dir = cv::Mat(ray_next - ray_start);
+					cv::Mat ray_dir = -cv::Mat(ray_next - ray_start);
 					double mod = ray_dir.ptr<double>(0)[0] * ray_dir.ptr<double>(0)[0]
 						+ ray_dir.ptr<double>(1)[0] * ray_dir.ptr<double>(1)[0]
 						+ ray_dir.ptr<double>(2)[0] * ray_dir.ptr<double>(2)[0];
@@ -611,14 +607,10 @@ namespace unre
 			float3* host_vmap_m = new float3[1080 * 720];
 			cudaMemcpy(host_vmap_m, dev_vmap, 1080 * 720 * sizeof(float3), cudaMemcpyDeviceToHost);
 			int point_cnt = 0;
-			cv::Mat xxx_ = cv::Mat::zeros(720,1080,CV_32FC3);
 			for (size_t i = 0; i < 1080 * 720; i++)
 			{
-				xxx_.at<cv::Vec3f>(i / 1080, i % 1080)[0] = host_vmap_m[i].x;
-				xxx_.at<cv::Vec3f>(i / 1080, i % 1080)[1] = host_vmap_m[i].y;
-				xxx_.at<cv::Vec3f>(i / 1080, i % 1080)[2] = host_vmap_m[i].z;
-				
-				//if (!(host_vmap_m[i].x == 0.f && host_vmap_m[i].y == 0.f && host_vmap_m[i].z == 0.f))
+				//if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
+				if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
 				{
 					point_cnt++;
 				}
@@ -631,14 +623,12 @@ namespace unre
 			point_cnt = 0;
 			for (size_t i = 0; i < 1080 * 720; i++)
 			{
-				//if (!(host_vmap_m[i].x == 0 && host_vmap_m[i].y == 0 && host_vmap_m[i].z == 0))
+				//if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
+				if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
 				{
-					//cloud->points[point_cnt].x = host_vmap_m[i].x;
-					//cloud->points[point_cnt].y = host_vmap_m[i].y;
-					//cloud->points[point_cnt].z = host_vmap_m[i].z;
-					cloud->points[point_cnt].x = host_vmap.at<cv::Vec3d>(point_cnt/1080, point_cnt%1080)[0]-90;
-					cloud->points[point_cnt].y = host_vmap.at<cv::Vec3d>(point_cnt / 1080, point_cnt % 1080)[1]-90;
-					cloud->points[point_cnt].z = host_vmap.at<cv::Vec3d>(point_cnt / 1080, point_cnt % 1080)[2]+200;
+					cloud->points[point_cnt].x = host_vmap_m[i].x;
+					cloud->points[point_cnt].y = host_vmap_m[i].y;
+					cloud->points[point_cnt].z = host_vmap_m[i].z;
 					point_cnt++;
 				}
 			}

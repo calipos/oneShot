@@ -123,8 +123,9 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
 	Mat33 R, float3 t, float tranc_dist, short2* volume, float*&depthRawScaled);
 
+////用光线追踪的想法来扫描体素得到点云，此处的点云的角度并不是large-slace，所以t_必须在体素外！！
 void
-raycast(const short2* volume, float3* vmap, int rows, int cols,
+raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
 	Mat33 R_inv, float3 t_, float tranc_dist);
 
