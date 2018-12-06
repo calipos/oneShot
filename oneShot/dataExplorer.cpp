@@ -11,7 +11,7 @@
 #include "opencv2/opencv.hpp"
 #endif
 //#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
-#define CHECK_CUDA_RAYCAST
+//#define CHECK_CUDA_RAYCAST
 #define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
@@ -254,6 +254,20 @@ namespace unre
 		cv::Mat show2 = cv::Mat(height2, width2, channels2 == 1 ? CV_16UC1 : CV_16UC3);
 		cv::Mat show3 = cv::Mat(height3, width3, channels3 == 1 ? CV_8UC1 : CV_8UC3);
 #endif
+		short*depth_dev = NULL;//用以接受host 设备的深度图
+		float*scaledDepth = NULL;//scale的深度图
+		initVolu(depth_dev, scaledDepth, show2.rows, show2.cols);
+		float3* host_vmap_m = new float3[show2.rows* show2.cols];//把raycast出来的点云拷到host
+
+		pcl::visualization::PCLVisualizer cloud_viewer_;
+		cloud_viewer_.setBackgroundColor(0, 0, 0.15);
+		cloud_viewer_.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1);
+		cloud_viewer_.addCoordinateSystem(1.0, "global");
+		cloud_viewer_.initCameraParameters();
+		cloud_viewer_.setPosition(0, 0);
+		cloud_viewer_.setSize(640, 360);
+		cloud_viewer_.setCameraClipDistances(0.01, 10.01);
+
 		int time__ = 500;
 		while (time__--)
 		{
@@ -291,17 +305,16 @@ namespace unre
 									
 			cv::resize(testDepthMat, show2, cv::Size(1080,720));			
 
-			initVolu();
+			
+
 			Mat33 R_( std::get<0>(stream2Extr[2]).ptr<double>(0), 
 				std::get<0>(stream2Extr[2]).ptr<double>(1), 
 				std::get<0>(stream2Extr[2]).ptr<double>(2)	);
 			float3 t_;
 			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0];
 			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0];
-			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0];
-
-			float*scaledDepth = NULL;
-			short*depth_dev = creatGpuData<short>(show2.rows*show2.cols);
+			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0];			
+			
 			cudaMemcpy((void*)depth_dev, (void*)show2.data, show2.rows*show2.cols*sizeof(unsigned short),cudaMemcpyHostToDevice);
 			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
@@ -604,10 +617,10 @@ namespace unre
 			//{
 			//}
 						
-			float3* host_vmap_m = new float3[1080 * 720];
-			cudaMemcpy(host_vmap_m, dev_vmap, 1080 * 720 * sizeof(float3), cudaMemcpyDeviceToHost);
+			
+			cudaMemcpy(host_vmap_m, dev_vmap, show2.cols * show2.rows * sizeof(float3), cudaMemcpyDeviceToHost);
 			int point_cnt = 0;
-			for (size_t i = 0; i < 1080 * 720; i++)
+			for (size_t i = 0; i < show2.cols * show2.rows; i++)
 			{
 				//if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
 				if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
@@ -621,7 +634,7 @@ namespace unre
 			cloud->is_dense = false;
 			cloud->points.resize(cloud->width * cloud->height);
 			point_cnt = 0;
-			for (size_t i = 0; i < 1080 * 720; i++)
+			for (size_t i = 0; i < show2.cols * show2.rows; i++)
 			{
 				//if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
 				if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
@@ -632,11 +645,18 @@ namespace unre
 					point_cnt++;
 				}
 			}
-			pcl::visualization::CloudViewer viewer("Viewer");
-			viewer.showCloud(cloud);
-			while (!viewer.wasStopped())
-			{
-			}
+			//pcl::visualization::CloudViewer viewer("Viewer");			
+			//viewer.showCloud(cloud);
+			//while (!viewer.wasStopped())
+			//{
+			//}
+
+			
+			cloud_viewer_.removeAllPointClouds();
+			cloud_viewer_.addPointCloud<pcl::PointXYZ>(cloud);
+			
+				cloud_viewer_.spinOnce(1000);
+
 #endif
 		}
 		return 0;

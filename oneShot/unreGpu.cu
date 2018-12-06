@@ -111,8 +111,10 @@ unpack_tsdf(short2 value)
 	return static_cast<float>(value.x) / DIVISOR;    //*/ * INV_DIV;
 }
 
-int initVolu()
+int initVolu(short*&depth_dev, float*&scaledDepth, int depthRows, int depthCols)
 {
+	depth_dev = creatGpuData<short>(depthRows*depthCols);
+	scaledDepth = creatGpuData<float>(depthRows*depthCols);
 	volume = creatGpuData<short2>(VOLUME_X*VOLUME_Y*VOLUME_Z);
 	return 0;
 }
@@ -307,7 +309,7 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	Mat33 R, float3 t, float tranc_dist, short2* volume,float*&depthRawScaled)
 {
 	
-	depthRawScaled = creatGpuData<float>(rows*cols);
+	
 
 	dim3 block_scale(32, 8);
 	dim3 grid_scale(divUp(cols, block_scale.x), divUp(rows, block_scale.y));

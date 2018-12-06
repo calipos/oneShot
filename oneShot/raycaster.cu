@@ -1,9 +1,10 @@
 #include"unreGpu.h"
 
-//inline float rsqrtf(float x)
-//{
-//	return 1.0f / sqrtf(x);
-//}
+__device__ __forceinline__ float3
+normalized(const float3& v)
+{
+	return v * rsqrt(dot(v, v));
+}
 
 template<> struct numeric_limits<float>
 {
@@ -18,7 +19,7 @@ template<> struct numeric_limits<float>
 		max() { return 3.402823466e+38f/*FLT_MAX*/; };
 
 	__device__ __forceinline__ static bool
-		isnan(float value) { return __int_as_float(0x7fffffff)== value; };
+		isnan(float value) { return __int_as_float(0x7fffffff) == value; };
 };
 
 template<> struct numeric_limits<short>
@@ -28,11 +29,6 @@ template<> struct numeric_limits<short>
 };
 
 
-__device__ __forceinline__ float3
-normalized(const float3& v)
-{
-	return v * rsqrt(dot(v, v));
-}
 
 struct RayCaster
 {

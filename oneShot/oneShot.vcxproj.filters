@@ -160,5 +160,8 @@
     <CudaCompile Include="raycaster.cu">
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
+    <CudaCompile Include="nvmap.cu">
+      <Filter>源文件\cuda</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

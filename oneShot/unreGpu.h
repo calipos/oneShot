@@ -11,6 +11,7 @@
 #include "device_functions.h"
 
 
+
 static inline void ___cudaSafeCall(cudaError_t err, const char *file, const int line, const char *func = "")
 {
 	if (cudaSuccess != err) printf("Error: %s - file:%s, line:%d, func:%s\n", cudaGetErrorString(err), file, line, func);
@@ -21,8 +22,6 @@ static inline void ___cudaSafeCall(cudaError_t err, const char *file, const int 
 #else /* defined(__CUDACC__) || defined(__MSVC__) */
 #define cudaSafeCall(expr)  ___cudaSafeCall(expr, __FILE__, __LINE__)    
 #endif
-
-
 
 
 
@@ -101,8 +100,6 @@ operator* (const Mat33& m, const float3& vec)
 
 template<typename T> struct numeric_limits;
 
-
-
 enum
 {
 	VOLUME_SIZE_X = 512, VOLUME_SIZE_Y = 512, VOLUME_SIZE_Z = 512
@@ -117,7 +114,17 @@ Dtype* creatGpuData(const int elemCnt, bool fore_zeros = false);
 
 static inline int divUp(int total, int grain) { return (total + grain - 1) / grain; }
 
-int initVolu();
+////目前只是init一个深度相机的空间
+int initVolu(short*&depth_dev, float*&scaledDepth, int depthRows, int depthCols);
+
+template<typename T>
+int computeNormalsEigen(const T*vmap, T*nmap, const int rows, const int cols);
+
+template<typename T>
+int tranformMaps(const T* vmap_src, const T* nmap_src, const T*Rmat_, const T*tvec_, T* vmap_dst, T* nmap_dst, const int& rows, const int& cols);
+template<typename T>
+int tranformMaps(const T* vmap_src, const T*Rmat_, const T*tvec_, T* vmap_dst, const int& rows, const int& cols);
+
 
 void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
