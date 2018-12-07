@@ -38,18 +38,66 @@ struct RayCaster
 __device__ __forceinline__ float
 	getMinTime(const float3& origin, const float3& dir)
 {
-	float txmin = ((dir.x > 0 ? 0.f : VOLUME_SIZE_X) - origin.x) / dir.x;
-	float tymin = ((dir.y > 0 ? 0.f : VOLUME_SIZE_Y) - origin.y) / dir.y;
-	float tzmin = ((dir.z <= 0 ? 0.f : -VOLUME_SIZE_Z) - origin.z) / dir.z;
+	float txmin = 0.0;
+	if (origin.x<0 && dir.x > 0)
+	{
+		txmin = -origin.x / dir.x;
+	}
+	else if (origin.x>0 && dir.x < 0)
+	{
+		txmin = (VOLUME_SIZE_X - origin.x) / dir.x;
+	}
+	float tymin = 0.0;
+	if (origin.y<0 && dir.y > 0)
+	{
+		tymin = -origin.y / dir.y;
+	}
+	else if (origin.y>0 && dir.y < 0)
+	{
+		tymin = (VOLUME_SIZE_Y - origin.y) / dir.y;
+	}
+	float tzmin = 0.0;
+	if (origin.z<0 && dir.z > 0)
+	{
+		tzmin = (VOLUME_SIZE_Z - origin.z) / dir.z; 
+	}
+	else if (origin.z>0 && dir.z < 0)
+	{
+		tzmin = -origin.z / dir.z;
+	}
 	return fmax(fmax(txmin, tymin), tzmin);
 }
 
 __device__ __forceinline__ float
 	getMaxTime(const float3& origin, const float3& dir)
 {
-	float txmax = ((dir.x <= 0 ? 0.f : VOLUME_SIZE_X) - origin.x) / dir.x;
-	float tymax = ((dir.y <= 0 ? 0.f : VOLUME_SIZE_Y) - origin.y) / dir.y;
-	float tzmax = ((dir.z > 0 ? 0.f : -VOLUME_SIZE_Z) - origin.z) / dir.z;
+	float txmax = 0.0;
+	if (origin.x<0 && dir.x > 0)
+	{
+		txmax = (VOLUME_SIZE_X -origin.x) / dir.x;
+	}
+	else if (origin.x>0 && dir.x < 0)
+	{
+		txmax = (- origin.x) / dir.x;
+	}
+	float tymax = 0.0;
+	if (origin.y<0 && dir.y > 0)
+	{
+		tymax = (VOLUME_SIZE_Y -origin.y) / dir.y;
+	}
+	else if (origin.y>0 && dir.y < 0)
+	{
+		tymax = ( - origin.y) / dir.y;
+	}
+	float tzmax = 0.0;
+	if (origin.z<0 && dir.z > 0)
+	{
+		tzmax = (-origin.z) / dir.z; 
+	}
+	else if (origin.z>0 && dir.z < 0)
+	{
+		tzmax = -(VOLUME_SIZE_Z + origin.z) / dir.z;
+	}
 	return fmin(fmin(txmax, tymax), tzmax);
 }
 
@@ -151,8 +199,16 @@ __global__  void
 		return;		
 			
 	float3 ray_start = t_;
-	float3 ray_next = R_ * get_ray_next(x, y, intr_cx, intr_cy,
-		intr_fx, intr_fy) + t_;
+	//float3 ray_next = R_ * get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) + t_;
+	float3 ray_next = R_ * (get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) - t_);
+	if (ray_next.z > ray_start.z&&ray_start.z>0)
+	{
+		ray_next = ray_next*-1.;		
+	}
+	if (ray_next.z < ray_start.z&&ray_start.z<0)
+	{
+		ray_next = ray_next*-1.;
+	}
 
 	//float3 ray_dir = normalized(ray_next - ray_start);
 	float3 ray_dir = normalized(ray_start - ray_next);			

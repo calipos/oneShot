@@ -14,7 +14,7 @@
 
 static inline void ___cudaSafeCall(cudaError_t err, const char *file, const int line, const char *func = "")
 {
-	if (cudaSuccess != err) printf("Error: %s - file:%s, line:%d, func:%s\n", cudaGetErrorString(err), file, line, func);
+	if (cudaSuccess != err) printf("%d : Error: %s - file:%s, line:%d, func:%s\n", err,cudaGetErrorString(err), file, line, func);
 }
 
 #if defined(__GNUC__)
@@ -100,10 +100,10 @@ operator* (const Mat33& m, const float3& vec)
 
 template<typename T> struct numeric_limits;
 
-enum
-{
-	VOLUME_SIZE_X = 512, VOLUME_SIZE_Y = 512, VOLUME_SIZE_Z = 512
-};//mm
+#define VOLUME_SIZE_X (1.024)
+#define VOLUME_SIZE_Y (1.024)
+#define VOLUME_SIZE_Z (1.024)
+
 enum 
 {
 	VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024

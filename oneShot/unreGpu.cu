@@ -136,7 +136,7 @@ scaleDepth(const short* depth, float* scaled, const int rows,const int cols,
 	float yl = (y - intr_cy) / intr_fy;
 	float lambda = sqrtf(xl * xl + yl * yl + 1);
 
-	scaled[y*cols + x] = Dp * lambda;// / 1000.f; //meters
+	scaled[y*cols + x] = Dp * lambda / 1000.f; //meters
 }
 
 
@@ -309,10 +309,10 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	Mat33 R, float3 t, float tranc_dist, short2* volume,float*&depthRawScaled)
 {
 	
-	
 
 	dim3 block_scale(32, 8);
 	dim3 grid_scale(divUp(cols, block_scale.x), divUp(rows, block_scale.y));
+	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	
 	//scales depth along ray and converts mm -> meters. 

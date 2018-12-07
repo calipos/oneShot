@@ -23,6 +23,7 @@ extern int TEST_tsdf();
 extern int TEST_generate_testDepthMat();
 int main()
 {
+	//TEST_calib();
 	//TEST_generate_testDepthMat();
 	TEST_tsdf();
 	//TEST_dataExplorer_destroy();

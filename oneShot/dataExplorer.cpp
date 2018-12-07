@@ -11,7 +11,7 @@
 #include "opencv2/opencv.hpp"
 #endif
 //#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
-//#define CHECK_CUDA_RAYCAST
+#define CHECK_CUDA_RAYCAST
 #define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
@@ -205,7 +205,12 @@ namespace unre
 			cv::imshow("2", show2);
 			cv::imshow("3", show3);
 
-			int key = cv::waitKey(12);
+			int key = cv::waitKey(10);
+
+			//cv::FileStorage fs("data.yml", cv::FileStorage::WRITE);
+			//fs << "color" << show1;
+			//fs << "depth" << show2;
+			//fs.release();
 			if (key == 'a')
 			{
 				dev_e->pauseThread();
@@ -259,6 +264,13 @@ namespace unre
 		initVolu(depth_dev, scaledDepth, show2.rows, show2.cols);
 		float3* host_vmap_m = new float3[show2.rows* show2.cols];//把raycast出来的点云拷到host
 
+#ifdef CHECK_CUDA_VOXEL
+		short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
+#endif
+#ifdef CHECK_CUDA_RAYCAST
+		short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
+#endif
+#ifdef PCL_SHOW
 		pcl::visualization::PCLVisualizer cloud_viewer_;
 		cloud_viewer_.setBackgroundColor(0, 0, 0.15);
 		cloud_viewer_.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1);
@@ -267,14 +279,14 @@ namespace unre
 		cloud_viewer_.setPosition(0, 0);
 		cloud_viewer_.setSize(640, 360);
 		cloud_viewer_.setCameraClipDistances(0.01, 10.01);
-
+#endif
 		int time__ = 500;
 		while (time__--)
 		{
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
 			auto yyy = ((FrameRingBuffer<unsigned short>*)bufferVecP[1].data)->pop(show2.data);
 			auto zzz = ((FrameRingBuffer<unsigned char>*)bufferVecP[2].data)->pop(show3.data);			
-			
+	/*		
 			cv::FileStorage fs("testDepthMat.xml", cv::FileStorage::READ);
 			cv::Mat testDepthMat;
 			fs["testDepthMat"] >> testDepthMat;
@@ -304,26 +316,30 @@ namespace unre
 #endif // SHOW_AFFINE
 									
 			cv::resize(testDepthMat, show2, cv::Size(1080,720));			
-
+*/
 			
 
-			Mat33 R_( std::get<0>(stream2Extr[2]).ptr<double>(0), 
-				std::get<0>(stream2Extr[2]).ptr<double>(1), 
-				std::get<0>(stream2Extr[2]).ptr<double>(2)	);
+			Mat33 R_(std::get<0>(stream2Extr[2]).ptr<double>(0),
+				std::get<0>(stream2Extr[2]).ptr<double>(1),
+				std::get<0>(stream2Extr[2]).ptr<double>(2));
+			cv::Mat R_inv_cv = std::get<0>(stream2Extr[2]).inv();
+			Mat33 R_inv(R_inv_cv.ptr<double>(0),
+				R_inv_cv.ptr<double>(1),
+				R_inv_cv.ptr<double>(2));
 			float3 t_;
-			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0];
-			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0];
-			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0];			
+			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0] * 0.001;
+			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0] * 0.001;
+			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0] * 0.001;
 			
 			cudaMemcpy((void*)depth_dev, (void*)show2.data, show2.rows*show2.cols*sizeof(unsigned short),cudaMemcpyHostToDevice);
 			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_,10, volume, scaledDepth);
+				R_, t_,0.03, volume, scaledDepth);
 			{
 
 #ifdef CHECK_CUDA_VOXEL
-				short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
+				
 				cv::Mat cpu_data(show2.rows, show2.cols, CV_32FC1);
 				cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
 				float3 cell_size; 
@@ -331,7 +347,7 @@ namespace unre
 				cell_size.y = 1.*VOLUME_SIZE_Y / VOLUME_Y; 
 				cell_size.z = 1.*VOLUME_SIZE_Z / VOLUME_Z;
 				auto& R = R_;
-				auto& t = t_;
+				auto& t = t_ * 0.001;
 				if (false)//cpu模拟cuda体素过程
 				{				
 					for (int y = VOLUME_Y/2; y < VOLUME_Y; y++)for (int x = VOLUME_X/2; x < VOLUME_X; x++)
@@ -346,15 +362,17 @@ namespace unre
 
 						float v_part_norm = v_x * v_x + v_y * v_y;
 
+						
+
 						//v_z = v_z + t.z;
-						v_x = (v_x ) * stream2Intr[1]->ptr<double>(0)[2];
-						v_y = (v_y ) * stream2Intr[1]->ptr<double>(1)[2];
+						v_x = (v_x) * stream2Intr[1]->ptr<double>(0)[2];
+						v_y = (v_y) * stream2Intr[1]->ptr<double>(1)[2];
 
 						float z_scaled = 0;
 
 						float Rcurr_inv_0_z_scaled = R.data[0].z * cell_size.z * stream2Intr[1]->ptr<double>(0)[0];
 						float Rcurr_inv_1_z_scaled = R.data[1].z * cell_size.z * stream2Intr[1]->ptr<double>(1)[1];
-						float tranc_dist = 30.;
+						float tranc_dist = 0.03;
 						float tranc_dist_inv = 1.0f / tranc_dist;
 
 						int elem_step = VOLUME_X * VOLUME_Y;
@@ -402,13 +420,14 @@ namespace unre
 						//break;
 					}
 				}
-				if (true)//cpu显示cuda的体素结果
+				if (false)//cpu显示cuda的体素结果
 				{
+					cv::Mat shows1 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
+					cv::Mat shows2 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
 					cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
 					for (int z = 0; z<VOLUME_Z; z++)
 					{
-						cv::Mat shows1 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
-						cv::Mat shows2 = cv::Mat::zeros(VOLUME_Y, VOLUME_X, CV_16SC1);
+						
 						short*temp1 = (short*)shows1.data;
 						short*temp2 = (short*)shows2.data;
 						
@@ -418,28 +437,31 @@ namespace unre
 							temp1[i] = volume___[z * VOLUME_X * VOLUME_Y + i].x;
 							temp2[i] = volume___[z * VOLUME_X * VOLUME_Y + i].y;
 						}
-						//LOG(INFO) << shows1.ptr<short>(256)[256];
-						cv::imshow("123", shows1);
-						//cv::imshow("1234", shows2);
-						cv::waitKey(20);
+						//cv::imshow("123", shows1);
+						//cv::waitKey(20);
+						break;
 					}
-				}				
+					cv::imshow("123", shows1);
+					cv::waitKey(20);
+				}			
 #endif			
 			}
 			float3*dev_vmap = creatGpuData<float3>(1080*720,true);
 			
-			raycastPoint(volume, dev_vmap,720,1080,
+			raycastPoint(volume, dev_vmap, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2],
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_,10);
+				R_inv, t_,10);
+
 
 #ifdef CHECK_CUDA_RAYCAST
+			cv::Mat vmap2map = cv::Mat::zeros(show2.rows, show2.cols, CV_32FC3);
 			short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
 			cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
-			cv::Mat host_vmap = cv::Mat::zeros(720, 1080, CV_64FC3);
-			if (false) //cpu仿真raycast
+
+			if (true) //cpu仿真raycast
 			{
-				for (int i = 0; i < 720; i++)for (int j = 0; j < 1080; j++)
+				for (int i = 0; i < show2.rows; i++)for (int j = 0; j < show2.cols; j++)
 				{
 					if ((i+j)%2)
 					{
@@ -455,9 +477,10 @@ namespace unre
 					cmos_pos.ptr<double>(1)[0] = (i - stream2Intr[1]->ptr<double>(1)[2]) / stream2Intr[1]->ptr<double>(1)[1];
 					cmos_pos.ptr<double>(2)[0] = 1.0;
 
-					cv::Mat ray_next = std::get<0>(stream2Extr[2])*cmos_pos + ray_start;
+					cv::Mat ray_next = std::get<0>(stream2Extr[2]).inv()*(cmos_pos - ray_start);
+					cv::Mat ray_next_back = std::get<0>(stream2Extr[2])*ray_next + ray_start;
 
-					cv::Mat ray_dir = -cv::Mat(ray_next - ray_start);
+					cv::Mat ray_dir = cv::Mat(ray_next - ray_start);
 					double mod = ray_dir.ptr<double>(0)[0] * ray_dir.ptr<double>(0)[0]
 						+ ray_dir.ptr<double>(1)[0] * ray_dir.ptr<double>(1)[0]
 						+ ray_dir.ptr<double>(2)[0] * ray_dir.ptr<double>(2)[0];
@@ -465,13 +488,59 @@ namespace unre
 					ray_dir /= mod;
 
 
-					double txmin = ((ray_dir.ptr<double>(0)[0] > 0 ? 0.f : VOLUME_SIZE_X) - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
-					double tymin = ((ray_dir.ptr<double>(1)[0] > 0 ? 0.f : VOLUME_SIZE_Y) - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
-					double tzmin = ((ray_dir.ptr<double>(2)[0] <= 0 ? 0.f : -VOLUME_SIZE_Z) - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+					double txmin = 0., tymin = 0., tzmin = 0., txmax = 0., tymax = 0., tzmax = 0.;
+					if (ray_start.ptr<double>(0)[0]<0 && ray_dir.ptr<double>(0)[0] > 0)
+					{
+						txmin = -ray_start.ptr<double>(0)[0] / ray_dir.ptr<double>(0)[0];
+					}
+					else if (ray_start.ptr<double>(0)[0]>0 && ray_dir.ptr<double>(0)[0] < 0)
+					{
+						txmin = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+					}
+					if (ray_start.ptr<double>(1)[0]<0 && ray_dir.ptr<double>(1)[0] > 0)
+					{
+						tymin = -ray_start.ptr<double>(1)[0] / ray_dir.ptr<double>(1)[0];
+					}
+					else if (ray_start.ptr<double>(1)[0]>0 && ray_dir.ptr<double>(1)[0] < 0)
+					{
+						tymin = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+					}
+					if (ray_start.ptr<double>(2)[0]<0 && ray_dir.ptr<double>(2)[0] > 0)
+					{
+						tzmin = (VOLUME_SIZE_Z - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+					}
+					else if (ray_start.ptr<double>(2)[0]>0 && ray_dir.ptr<double>(2)[0] < 0)
+					{
+						tzmin = -ray_start.ptr<double>(2)[0] / ray_dir.ptr<double>(2)[0]; 
+					}
+
+					if (ray_start.ptr<double>(0)[0]<0 && ray_dir.ptr<double>(0)[0] > 0)
+					{
+						txmax = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0]; 
+					}
+					else if (ray_start.ptr<double>(0)[0]>0 && ray_dir.ptr<double>(0)[0] < 0)
+					{
+						txmax = -ray_start.ptr<double>(0)[0] / ray_dir.ptr<double>(0)[0];
+					}
+					if (ray_start.ptr<double>(1)[0]<0 && ray_dir.ptr<double>(1)[0] > 0)
+					{
+						tymax = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+					}
+					else if (ray_start.ptr<double>(1)[0]>0 && ray_dir.ptr<double>(1)[0] < 0)
+					{
+						tymax = -ray_start.ptr<double>(1)[0] / ray_dir.ptr<double>(1)[0]; 
+					}
+					if (ray_start.ptr<double>(2)[0]<0 && ray_dir.ptr<double>(2)[0] > 0)
+					{						
+						tzmax = -ray_start.ptr<double>(2)[0] / ray_dir.ptr<double>(2)[0];
+					}
+					else if (ray_start.ptr<double>(2)[0]>0 && ray_dir.ptr<double>(2)[0] < 0)
+					{
+						tzmax = -(VOLUME_SIZE_Z + ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0]; 
+					}
+
+
 					double time_start_volume = fmax(fmax(txmin, tymin), tzmin);
-					double txmax = ((ray_dir.ptr<double>(0)[0] <= 0 ? 0.f : VOLUME_SIZE_X) - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
-					double tymax = ((ray_dir.ptr<double>(1)[0] <= 0 ? 0.f : VOLUME_SIZE_Y) - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
-					double tzmax = ((ray_dir.ptr<double>(2)[0] > 0 ? 0.f : -VOLUME_SIZE_Z) - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
 					double time_exit_volume = fmin(fmin(txmax, tymax), tzmax);
 
 					const double min_dist = 0.f;         //in meters
@@ -587,9 +656,9 @@ namespace unre
 							double Ts = time_curr - time_step * Ft / (Ftdt - Ft);
 
 							cv::Mat temp = (ray_start + ray_dir * Ts);
-							host_vmap.at<cv::Vec3d>(i, j)[0] = (temp).ptr<double>(0)[0];
-							host_vmap.at<cv::Vec3d>(i, j)[1] = (temp).ptr<double>(1)[0];
-							host_vmap.at<cv::Vec3d>(i, j)[2] = (temp).ptr<double>(2)[0];
+							vmap2map.at<cv::Vec3d>(i, j)[0] = (temp).ptr<double>(0)[0];
+							vmap2map.at<cv::Vec3d>(i, j)[1] = (temp).ptr<double>(1)[0];
+							vmap2map.at<cv::Vec3d>(i, j)[2] = (temp).ptr<double>(2)[0];
 						}
 					}
 				}
@@ -622,8 +691,8 @@ namespace unre
 			int point_cnt = 0;
 			for (size_t i = 0; i < show2.cols * show2.rows; i++)
 			{
-				//if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
-				if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
+				if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
+				//if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
 				{
 					point_cnt++;
 				}
@@ -634,14 +703,20 @@ namespace unre
 			cloud->is_dense = false;
 			cloud->points.resize(cloud->width * cloud->height);
 			point_cnt = 0;
+			
 			for (size_t i = 0; i < show2.cols * show2.rows; i++)
 			{
-				//if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
-				if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
+				if (!(host_vmap_m[i].x == std::numeric_limits<float>::quiet_NaN()))
+				//if (!(host_vmap_m[i].x == 0.f&&host_vmap_m[i].y == 0.f&&host_vmap_m[i].z == 0.f))
 				{
 					cloud->points[point_cnt].x = host_vmap_m[i].x;
 					cloud->points[point_cnt].y = host_vmap_m[i].y;
 					cloud->points[point_cnt].z = host_vmap_m[i].z;
+#ifdef CHECK_CUDA_RAYCAST
+					vmap2map.at<cv::Vec3f>(i / show2.cols, i % show2.cols)[0] = host_vmap_m[i].x;
+					vmap2map.at<cv::Vec3f>(i / show2.cols, i % show2.cols)[1] = host_vmap_m[i].y;
+					vmap2map.at<cv::Vec3f>(i / show2.cols, i % show2.cols)[2] = host_vmap_m[i].z;
+#endif
 					point_cnt++;
 				}
 			}
@@ -654,9 +729,8 @@ namespace unre
 			
 			cloud_viewer_.removeAllPointClouds();
 			cloud_viewer_.addPointCloud<pcl::PointXYZ>(cloud);
-			
-				cloud_viewer_.spinOnce(1000);
-
+			cloud_viewer_.spinOnce(10000000);
+			//std::cout <<1 << std::endl;
 #endif
 		}
 		return 0;
@@ -919,10 +993,10 @@ namespace unre
 			for (int j = 0; j < chessBoradSize.width; j++)
 			{
 				cv::Point3f tempPoint;
-				//tempPoint.x = (j ) * chessUnitSize.width;
-				//tempPoint.y = (i ) * chessUnitSize.height;
-				tempPoint.x = (chessBoradSize.width - j - 1) * chessUnitSize.width;
-				tempPoint.y = (chessBoradSize.height - i - 1) * chessUnitSize.height;
+				tempPoint.x = (j ) * chessUnitSize.width;
+				tempPoint.y = (i ) * chessUnitSize.height;
+				//tempPoint.x = (chessBoradSize.width - j - 1) * chessUnitSize.width;
+				//tempPoint.y = (chessBoradSize.height - i - 1) * chessUnitSize.height;
 				tempPoint.z = 0;
 				true3DPointSet.push_back(tempPoint);
 				true3DPointSet_cx += tempPoint.x;
@@ -986,7 +1060,7 @@ namespace unre
 					bool patternfound = cv::findChessboardCorners(grayCalibImgs[i], chessBoradSize, srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
 					if (patternfound)
 					{
-						cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+						cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(15, 15), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 						cv::Mat intr = stream2Intr[i]->clone();
 						cv::Mat Rvect;
 						cv::Mat t;
@@ -995,6 +1069,8 @@ namespace unre
 						cv::Rodrigues(Rvect, Rmetrix);						
 						Rmetrix.copyTo(std::get<0>(stream2Extr[i]));
 						t.copyTo(std::get<1>(stream2Extr[i]));
+						LOG(INFO) << Rmetrix;
+						LOG(INFO) << t;
 					}
 					else
 					{
