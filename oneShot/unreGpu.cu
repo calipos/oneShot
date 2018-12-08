@@ -111,10 +111,11 @@ unpack_tsdf(short2 value)
 	return static_cast<float>(value.x) / DIVISOR;    //*/ * INV_DIV;
 }
 
-int initVolu(short*&depth_dev, float*&scaledDepth, int depthRows, int depthCols)
+int initVolu(short*&depth_dev, float*&scaledDepth,float3*&dev_vmap, int depthRows, int depthCols)
 {
-	depth_dev = creatGpuData<short>(depthRows*depthCols);
-	scaledDepth = creatGpuData<float>(depthRows*depthCols);
+	depth_dev = creatGpuData<short>(depthRows*depthCols);//体素的空间
+	scaledDepth = creatGpuData<float>(depthRows*depthCols);//计算体素的中间会重scale depth
+	dev_vmap = creatGpuData<float3>(depthRows*depthCols, true);//用以接受从体素模型中扫出的点云
 	volume = creatGpuData<short2>(VOLUME_X*VOLUME_Y*VOLUME_Z);
 	return 0;
 }
@@ -326,6 +327,7 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	cell_size.y = 1.*VOLUME_SIZE_Y / VOLUME_Y;
 	cell_size.z = 1.*VOLUME_SIZE_Z / VOLUME_Z;
 
+	cudaMemset(volume, 0, VOLUME_X*VOLUME_Y*VOLUME_Z * sizeof(short2));
 	//dim3 block(Tsdf::CTA_SIZE_X, Tsdf::CTA_SIZE_Y);
 	dim3 block(16, 16);
 	dim3 grid(divUp(VOLUME_X, block.x), divUp(VOLUME_Y, block.y));

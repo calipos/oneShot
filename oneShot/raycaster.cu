@@ -78,7 +78,7 @@ __device__ __forceinline__ float
 	}
 	else if (origin.x>0 && dir.x < 0)
 	{
-		txmax = (- origin.x) / dir.x;
+		txmax = - origin.x / dir.x;
 	}
 	float tymax = 0.0;
 	if (origin.y<0 && dir.y > 0)
@@ -87,12 +87,12 @@ __device__ __forceinline__ float
 	}
 	else if (origin.y>0 && dir.y < 0)
 	{
-		tymax = ( - origin.y) / dir.y;
+		tymax =  - origin.y / dir.y;
 	}
 	float tzmax = 0.0;
 	if (origin.z<0 && dir.z > 0)
 	{
-		tzmax = (-origin.z) / dir.z; 
+		tzmax = -origin.z / dir.z; 
 	}
 	else if (origin.z>0 && dir.z < 0)
 	{
@@ -107,9 +107,9 @@ __device__ __forceinline__ float3
 		const float intr_fx, const float intr_fy)
 {
 	float3 ray_next;
-	ray_next.x = (x - intr_cx) / intr_fx;
-	ray_next.y = (y - intr_cy) / intr_fy;
-	ray_next.z = 1.0;
+	ray_next.x = 0.5*(x - intr_cx) / intr_fx;
+	ray_next.y = 0.5*(y - intr_cy) / intr_fy;
+	ray_next.z = 0.5;
 	return ray_next;
 }
 
@@ -165,7 +165,7 @@ __device__ __forceinline__ float
 
 	float a = (point.x - (g.x + 0.5f) * cell_size.x) / cell_size.x;
 	float b = (point.y - (g.y + 0.5f) * cell_size.y) / cell_size.y;
-	float c = -(point.z + (g.z + 0.5f) * cell_size.z) / cell_size.z;
+	float c = (-point.z - (g.z + 0.5f) * cell_size.z) / cell_size.z;
 			
 	float res = 
 		readTsdf(volume, g.x + 0, g.y + 0, g.z + 0) * (1 - a) * (1 - b) * (1 - c) +
@@ -190,7 +190,7 @@ __global__  void
 	rayCastPointKernel(const short2* volume, float3* vmap, int rows, int cols,
 		const float intr_cx, const float intr_cy, 
 		const float intr_fx, const float intr_fy,
-		const Mat33 R_, const float3 t_, const float tranc_dist, float3 cell_size)
+		const Mat33 R_inv, const float3 t_, const float tranc_dist, float3 cell_size)
 {
 	int x = threadIdx.x + blockIdx.x * RayCaster::CTA_SIZE_X;
 	int y = threadIdx.y + blockIdx.y * RayCaster::CTA_SIZE_Y;
@@ -200,7 +200,7 @@ __global__  void
 			
 	float3 ray_start = t_;
 	//float3 ray_next = R_ * get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) + t_;
-	float3 ray_next = R_ * (get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) - t_);
+	float3 ray_next = R_inv * (get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) - t_);
 	if (ray_next.z > ray_start.z&&ray_start.z>0)
 	{
 		ray_next = ray_next*-1.;		
@@ -210,8 +210,7 @@ __global__  void
 		ray_next = ray_next*-1.;
 	}
 
-	//float3 ray_dir = normalized(ray_next - ray_start);
-	float3 ray_dir = normalized(ray_start - ray_next);			
+	float3 ray_dir = normalized(ray_next - ray_start);	
 	//ensure that it isn't a degenerate case
 	ray_dir.x = (ray_dir.x == 0.f) ? 1e-15 : ray_dir.x;
 	ray_dir.y = (ray_dir.y == 0.f) ? 1e-15 : ray_dir.y;
@@ -257,6 +256,7 @@ __global__  void
 			//vmap[y*cols + x].y = vetex_found_.y;
 			//vmap[y*cols + x].z = vetex_found_.z;
 			//break;//用这种直接返回的没有那么多的噪点，但是用下面的就会有很多噪点！！！
+
 			float Ftdt = interpolateTrilineary(volume, ray_start, ray_dir, time_curr + time_step, cell_size);					
 			if (isnan(Ftdt))
 				break;
@@ -282,7 +282,7 @@ __global__  void
 void
 raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
-	Mat33 R_, float3 t_, float tranc_dist)
+	Mat33 R_inv, float3 t_, float tranc_dist)
 {
 
 	dim3 block(RayCaster::CTA_SIZE_X, RayCaster::CTA_SIZE_Y);
@@ -295,7 +295,7 @@ raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 
 	rayCastPointKernel << <grid, block >> >(volume, vmap, rows, cols,
 		intr_cx, intr_cy, intr_fx, intr_fy,
-		R_, t_, tranc_dist, cell_size);
+		R_inv, t_, tranc_dist, cell_size);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 }

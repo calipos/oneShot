@@ -106,7 +106,7 @@ template<typename T> struct numeric_limits;
 
 enum 
 {
-	VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024
+	VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512
 };
 const int DIVISOR = 32767;     // SHRT_MAX;
 template<typename Dtype>
@@ -115,7 +115,7 @@ Dtype* creatGpuData(const int elemCnt, bool fore_zeros = false);
 static inline int divUp(int total, int grain) { return (total + grain - 1) / grain; }
 
 ////目前只是init一个深度相机的空间
-int initVolu(short*&depth_dev, float*&scaledDepth, int depthRows, int depthCols);
+int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap, int depthRows, int depthCols);
 
 template<typename T>
 int computeNormalsEigen(const T*vmap, T*nmap, const int rows, const int cols);
