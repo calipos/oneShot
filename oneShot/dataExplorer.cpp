@@ -10,8 +10,10 @@
 #ifdef OPENCV_SHOW
 #include "opencv2/opencv.hpp"
 #endif
+//#define CHECK_CUDA_DOWNSAMPLE
 //#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
 //#define CHECK_CUDA_RAYCAST
+
 #define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
@@ -262,7 +264,17 @@ namespace unre
 		short*depth_dev = NULL;//用以接受host 设备的深度图
 		float*scaledDepth = NULL;//scale的深度图
 		float3*dev_vmap = NULL;//用以接受从体素模型中扫出的点云
-		initVolu(depth_dev, scaledDepth, dev_vmap, show2.rows, show2.cols);
+		short*depth_midfiltered = NULL;//用来接受中值滤波的结果
+		short*depth_filled = NULL;//用来接受填充的结果
+		short2*depth_2 = NULL;//用来接受2阶下采样
+		short2*depth_3 = NULL;//用来接受3阶下采样
+
+#ifdef DOWNSAMPLE3TIMES
+		int downsample_h4 = show2.rows / 64;
+		int downsample_w4 = show2.cols / 64;
+		short2*depth_4 = creatGpuData<short2>(downsample_h3*downsample_w3);
+#endif
+		initVolu(depth_dev, scaledDepth, dev_vmap, depth_midfiltered, depth_filled, depth_2, depth_3, show2.rows, show2.cols);
 		float3* host_vmap_m = new float3[show2.rows* show2.cols];//把raycast出来的点云拷到host
 
 #ifdef CHECK_CUDA_VOXEL
@@ -333,14 +345,66 @@ namespace unre
 			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0] ;
 			
 			cudaMemcpy((void*)depth_dev, (void*)show2.data, show2.rows*show2.cols*sizeof(unsigned short),cudaMemcpyHostToDevice);
+			int downsample_h2 = show2.rows / 4;
+			int downsample_w2 = show2.cols / 4;
+			int downsample_h3 = show2.rows / 16;
+			int downsample_w3 = show2.cols / 16;
+		
+#ifdef DOWNSAMPLE3TIMES
+			midfilter33AndFillHoles44_downsample3t(depth_dev, show2.rows,show2.cols,
+				depth_midfiltered, depth_filled,
+				depth_2, downsample_h2, downsample_w2,
+				depth_3, downsample_h3, downsample_w3,
+				depth_4, downsample_h4, downsample_w4
+				);
+#else 			
+			midfilter33AndFillHoles44_downsample2t(depth_dev, show2.rows, show2.cols,
+				depth_midfiltered, depth_filled,
+				depth_2, downsample_h2, downsample_w2,
+				depth_3, downsample_h3, downsample_w3
+			);
+#endif
+#ifdef CHECK_CUDA_DOWNSAMPLE
+			cv::Mat midfiltered_cvmat = cv::Mat(show2.rows, show2.cols, CV_16SC1);
+			cudaMemcpy((void*)midfiltered_cvmat.data, (void*)depth_midfiltered, show2.rows*show2.cols * sizeof(short), cudaMemcpyDeviceToHost);
+			cv::Mat filled_cvmat = cv::Mat(show2.rows, show2.cols, CV_16SC1);
+			cudaMemcpy((void*)filled_cvmat.data, (void*)depth_filled, show2.rows*show2.cols * sizeof(short), cudaMemcpyDeviceToHost);
+			short2*hostDownSample2 = new short2[show2.rows* show2.cols/16];
+			cudaMemcpy((void*)hostDownSample2, (void*)depth_2, show2.rows*show2.cols * sizeof(short2)/16, cudaMemcpyDeviceToHost);
+			cv::Mat hostDownSample2_cvmat = cv::Mat(show2.rows/4, show2.cols/4, CV_16SC1);
+			for (int i = 0; i < show2.rows / 4; i++)for (int j = 0; j < show2.cols / 4; j++)
+			{
+				hostDownSample2_cvmat.ptr<short>(i)[j] = hostDownSample2[i*show2.cols / 4 + j].x;
+			}
+			short2*hostDownSample3 = new short2[show2.rows* show2.cols / 256];
+			cudaMemcpy((void*)hostDownSample3, (void*)depth_3, show2.rows*show2.cols * sizeof(short2) / 256, cudaMemcpyDeviceToHost);
+			cv::Mat hostDownSample3_cvmat = cv::Mat(show2.rows / 16, show2.cols / 16, CV_16SC1);
+			for (int i = 0; i < show2.rows / 16; i++)for (int j = 0; j < show2.cols / 16; j++)
+			{
+				hostDownSample3_cvmat.ptr<short>(i)[j] = hostDownSample3[i*show2.cols / 16 + j].x;
+			}
+#ifdef DOWNSAMPLE3TIMES
+			short2*hostDownSample4 = new short2[show2.rows* show2.cols / 4096];
+			cudaMemcpy((void*)hostDownSample4, (void*)depth_4, show2.rows*show2.cols * sizeof(short2) / 4096, cudaMemcpyDeviceToHost);
+			cv::Mat hostDownSample4_cvmat = cv::Mat(show2.rows / 64, show2.cols / 64, CV_16SC1);
+			for (int i = 0; i < show2.rows / 64; i++)for (int j = 0; j < show2.cols / 64; j++)
+			{
+				hostDownSample4_cvmat.ptr<short>(i)[j] = hostDownSample4[i*show2.cols / 64 + j].x;
+			}
+#endif
+#endif // CHECK_CUDA_DOWNSAMPLE
+
+
+
+
+
+			// depth_filled
 			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
 				R_, t_, truct, volume, scaledDepth);
 			{
-
-#ifdef CHECK_CUDA_VOXEL
-				
+#ifdef CHECK_CUDA_VOXEL				
 				cv::Mat cpu_data(show2.rows, show2.cols, CV_32FC1);
 				cudaMemcpy(cpu_data.data, scaledDepth, show2.rows* show2.cols * sizeof(float), cudaMemcpyDeviceToHost);
 				float3 cell_size; 
@@ -401,7 +465,7 @@ namespace unre
 								int(v_y * inv_z + stream2Intr[1]->ptr<double>(1)[2])
 							};
 
-							if (coo.x >= 0 && coo.y >= 0 && coo.x < 1080 && coo.y < 720)         //6
+							if (coo.x >= 0 && coo.y >= 0 && coo.x < show2.cols && coo.y < show2.rows)         //6
 							{
 								//v_part_norm += this_v_z*this_v_z;
 								float distance_sqr = v_part_norm+ this_v_z*this_v_z;
@@ -448,22 +512,21 @@ namespace unre
 				}			
 #endif			
 			}
-			
-			
+						
 			raycastPoint(volume, dev_vmap, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2],
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
 				R_inv, t_, truct);
-
 
 #ifdef CHECK_CUDA_RAYCAST
 			cv::Mat vmap2map = cv::Mat::zeros(show2.rows, show2.cols, CV_32FC3);
 			short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
 			cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
 
-			if (0) //cpu仿真raycast
+			if (1) //cpu仿真raycast
 			{
-				for (int i = show2.rows*.5; i < show2.rows; i++)for (int j = show2.cols*.5; j < show2.cols; j++)
+				for (int i = show2.rows*.5; i < show2.rows*.5+1; i++)for (int j = show2.cols*.5; j < show2.cols*.5+1; j++)
+				//for (int i = show2.rows*.5; i < show2.rows; i++)for (int j = show2.cols*.5; j < show2.cols; j++)
 				{
 					if ((i+j)%2)
 					{
@@ -478,8 +541,9 @@ namespace unre
 					cmos_pos.ptr<double>(0)[0] = 0.5*(j - stream2Intr[1]->ptr<double>(0)[2]) / stream2Intr[1]->ptr<double>(0)[0];
 					cmos_pos.ptr<double>(1)[0] = 0.5*(i - stream2Intr[1]->ptr<double>(1)[2]) / stream2Intr[1]->ptr<double>(1)[1];
 					cmos_pos.ptr<double>(2)[0] = 0.5;
-
-					cv::Mat ray_next = std::get<0>(stream2Extr[2]).inv()*(cmos_pos - ray_start);
+					
+					//cv::Mat ray_next = std::get<0>(stream2Extr[2]).inv()*(cmos_pos - ray_start);
+					cv::Mat ray_next = R_inv_cv*(cmos_pos - ray_start);
 					cv::Mat ray_next_back = std::get<0>(stream2Extr[2])*ray_next + ray_start;
 
 					cv::Mat ray_dir = cv::Mat(ray_next - ray_start);
@@ -657,7 +721,7 @@ namespace unre
 							cv::Mat temp = (ray_start + ray_dir * Ts);
 							vmap2map.at<cv::Vec3f>(i, j)[0] = static_cast<float>(temp.ptr<double>(0)[0]);
 							vmap2map.at<cv::Vec3f>(i, j)[1] = static_cast<float>(temp.ptr<double>(1)[0]);
-							vmap2map.at<cv::Vec3f>(i, j)[2] = static_cast<float>(temp.ptr<double>(2)[0]);
+							vmap2map.at<cv::Vec3f>(i, j)[2] = static_cast<float>(temp.ptr<double>(2)[0]);					
 						}
 					}
 				}
@@ -684,8 +748,7 @@ namespace unre
 			//while (!viewer_sample.wasStopped())
 			//{
 			//}
-						
-			
+									
 			cudaMemcpy(host_vmap_m, dev_vmap, show2.cols * show2.rows * sizeof(float3), cudaMemcpyDeviceToHost);
 			int point_cnt = 0;
 			for (size_t i = 0; i < show2.cols * show2.rows; i++)
@@ -724,7 +787,6 @@ namespace unre
 			//while (!viewer.wasStopped())
 			//{
 			//}
-
 			
 			cloud_viewer_.removeAllPointClouds();
 			cloud_viewer_.addPointCloud<pcl::PointXYZ>(cloud);
@@ -996,7 +1058,7 @@ namespace unre
 				tempPoint.y = (i ) * chessUnitSize.height*0.001;
 				//tempPoint.x = (chessBoradSize.width - j - 1) * chessUnitSize.width;
 				//tempPoint.y = (chessBoradSize.height - i - 1) * chessUnitSize.height;
-				tempPoint.z = 0;
+				tempPoint.z = VOLUME_SIZE_Z*(-0.5);
 				true3DPointSet.push_back(tempPoint);
 				true3DPointSet_cx += tempPoint.x;
 				true3DPointSet_cy += tempPoint.y;
@@ -1060,6 +1122,11 @@ namespace unre
 					if (patternfound)
 					{
 						cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(15, 15), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+						for (int pointIdx = 0; pointIdx < srcCandidateCorners.size(); pointIdx++)
+						{
+							srcCandidateCorners[pointIdx].x -= grayCalibImgs[i].cols*0.5;
+							srcCandidateCorners[pointIdx].y -= grayCalibImgs[i].rows*0.5;
+						}
 						cv::Mat intr = stream2Intr[i]->clone();
 						cv::Mat Rvect;
 						cv::Mat t;

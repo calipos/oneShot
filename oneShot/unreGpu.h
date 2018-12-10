@@ -24,7 +24,8 @@ static inline void ___cudaSafeCall(cudaError_t err, const char *file, const int 
 #endif
 
 
-
+//#define DOWNSAMPLE3TIMES
+#define DOWNSAMPLE2TIMES
 
 struct Mat33
 {
@@ -100,13 +101,14 @@ operator* (const Mat33& m, const float3& vec)
 
 template<typename T> struct numeric_limits;
 
-#define VOLUME_SIZE_X (1.024)
-#define VOLUME_SIZE_Y (1.024)
-#define VOLUME_SIZE_Z (1.024)
+#define VOLUME_SIZE_X (2.)
+#define VOLUME_SIZE_Y (2.)
+#define VOLUME_SIZE_Z (2.)
+
 
 enum 
 {
-	VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512
+	VOLUME_X = 1024, VOLUME_Y = 1024, VOLUME_Z = 1024,
 };
 const int DIVISOR = 32767;     // SHRT_MAX;
 template<typename Dtype>
@@ -115,7 +117,26 @@ Dtype* creatGpuData(const int elemCnt, bool fore_zeros = false);
 static inline int divUp(int total, int grain) { return (total + grain - 1) / grain; }
 
 ////目前只是init一个深度相机的空间
-int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap, int depthRows, int depthCols);
+int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
+	short*&depth_midfiltered, short*&depth_filled,
+	short2*&depth_2, short2*&depth_3,
+	int depthRows, int depthCols);
+
+#ifdef DOWNSAMPLE3TIMES
+void midfilter33AndFillHoles44_downsample3t(short*depth_dev1, int rows1, int cols1,
+	short*depth_dev1_midfiltered, short*depth_dev1_filled,
+	short2*depth_dev2, int rows2, int cols2,
+	short2*depth_dev3, int rows3, int cols3,
+	short2*depth_dev4, int rows4, int cols4);
+#else
+void midfilter33AndFillHoles44_downsample2t(short*depth_dev1, int rows1, int cols1,
+	short*depth_dev1_midfiltered, short*depth_dev1_filled,
+	short2*depth_dev2, int rows2, int cols2,
+	short2*depth_dev3, int rows3, int cols3);
+#endif // DOWNSAMPLE3TIMES
+
+
+
 
 template<typename T>
 int computeNormalsEigen(const T*vmap, T*nmap, const int rows, const int cols);

@@ -111,12 +111,25 @@ unpack_tsdf(short2 value)
 	return static_cast<float>(value.x) / DIVISOR;    //*/ * INV_DIV;
 }
 
-int initVolu(short*&depth_dev, float*&scaledDepth,float3*&dev_vmap, int depthRows, int depthCols)
+int initVolu(short*&depth_dev, float*&scaledDepth,float3*&dev_vmap, 
+	short*&depth_midfiltered, short*&depth_filled,
+	short2*&depth_2, short2*&depth_3,
+	int depthRows, int depthCols)
 {
 	depth_dev = creatGpuData<short>(depthRows*depthCols);//体素的空间
 	scaledDepth = creatGpuData<float>(depthRows*depthCols);//计算体素的中间会重scale depth
 	dev_vmap = creatGpuData<float3>(depthRows*depthCols, true);//用以接受从体素模型中扫出的点云
 	volume = creatGpuData<short2>(VOLUME_X*VOLUME_Y*VOLUME_Z);
+
+	depth_midfiltered = creatGpuData<short>(depthRows*depthCols);
+	depth_filled = creatGpuData<short>(depthRows*depthCols);
+	int downsample_h2 = depthRows / 4;
+	int downsample_w2 = depthCols / 4;
+	depth_2 = creatGpuData<short2>(downsample_h2*downsample_w2);
+	int downsample_h3 = depthRows / 16;
+	int downsample_w3 = depthCols / 16;
+	depth_3 = creatGpuData<short2>(downsample_h3*downsample_w3);
+
 	return 0;
 }
 

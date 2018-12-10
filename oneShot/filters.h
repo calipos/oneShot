@@ -6,13 +6,13 @@
 
 
 
-const unsigned int BLOCK_W = 8;
-const unsigned int BLOCK_H = 8;
+const unsigned int BLOCK_W_FILTER = 8;
+const unsigned int BLOCK_H_FILTER = 8;
 
 template<typename Dtype>
 __global__ void CudaMedianFilter3(Dtype * input, Dtype * output, unsigned int DATA_W, unsigned int DATA_H)
 {
-	__shared__ float window[BLOCK_W*BLOCK_H][9];
+	__shared__ float window[BLOCK_W_FILTER*BLOCK_H_FILTER][9];
 
 	unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -125,7 +125,7 @@ void CudaMedianFilter(Dtype ** pImage, int imageWidth, int imageHeight, int kern
 	cudaMalloc((void**)&pTmpImage, imageWidth*imageHeight * sizeof(uchar));
 
 
-	dim3 dimBlock(BLOCK_W, BLOCK_H);
+	dim3 dimBlock(BLOCK_W_FILTER, BLOCK_H_FILTER);
 	dim3 dimGrid((imageWidth + dimBlock.x - 1) / dimBlock.x, (imageHeight + dimBlock.y - 1) / dimBlock.y);
 
 	Dtype *d_input;
@@ -144,4 +144,7 @@ void CudaMedianFilter(Dtype ** pImage, int imageWidth, int imageHeight, int kern
 	cudaMemcpy(*pImage, pTmpImage, imageWidth*imageHeight * sizeof(uchar), cudaMemcpyDeviceToHost);
 	cudaFree(pTmpImage);
 }
+
+
+
 #endif // !_FILTERS_H_

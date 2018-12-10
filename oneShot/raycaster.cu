@@ -41,20 +41,20 @@ __device__ __forceinline__ float
 	float txmin = 0.0;
 	if (origin.x<0 && dir.x > 0)
 	{
-		txmin = -origin.x / dir.x;
+		txmin = (- origin.x) / dir.x;
 	}
 	else if (origin.x>0 && dir.x < 0)
 	{
-		txmin = (VOLUME_SIZE_X - origin.x) / dir.x;
+		txmin = (VOLUME_SIZE_X-origin.x) / dir.x;
 	}
 	float tymin = 0.0;
 	if (origin.y<0 && dir.y > 0)
 	{
-		tymin = -origin.y / dir.y;
+		tymin = ( - origin.y) / dir.y;
 	}
 	else if (origin.y>0 && dir.y < 0)
 	{
-		tymin = (VOLUME_SIZE_Y - origin.y) / dir.y;
+		tymin = (VOLUME_SIZE_X -origin.y) / dir.y;
 	}
 	float tzmin = 0.0;
 	if (origin.z<0 && dir.z > 0)
@@ -201,14 +201,14 @@ __global__  void
 	float3 ray_start = t_;
 	//float3 ray_next = R_ * get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) + t_;
 	float3 ray_next = R_inv * (get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) - t_);
-	if (ray_next.z > ray_start.z&&ray_start.z>0)
-	{
-		ray_next = ray_next*-1.;		
-	}
-	if (ray_next.z < ray_start.z&&ray_start.z<0)
-	{
-		ray_next = ray_next*-1.;
-	}
+	//if (ray_next.z > ray_start.z&&ray_start.z>0)
+	//{
+	//	ray_next = ray_next*-1.;		
+	//}
+	//if (ray_next.z < ray_start.z&&ray_start.z<0)
+	//{
+	//	ray_next = ray_next*-1.;
+	//}
 
 	float3 ray_dir = normalized(ray_next - ray_start);	
 	//ensure that it isn't a degenerate case
@@ -238,19 +238,25 @@ __global__  void
 	vmap[y*cols + x].x = numeric_limits<float>::quiet_NaN();
 	for (; time_curr < max_time; time_curr += time_step)
 	{
+		
 		float tsdf_prev = tsdf;
 
 		int3 g = getVoxel(ray_start + ray_dir * (time_curr + time_step),cell_size);
+		
 		if (!checkInds(g))
 			break;
-
+		
 		tsdf = readTsdf(volume, g.x, g.y, g.z);
-
+		
 		if (tsdf_prev < 0.f && tsdf > 0.f)
 			break;
-				
+		
 		if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
 		{
+			//vmap[y*cols + x].x = g.x;
+			//vmap[y*cols + x].y = g.y;
+			//vmap[y*cols + x].z = g.z;
+			//break;
 			//float3 vetex_found_ = ray_start + ray_dir * time_curr;
 			//vmap[y*cols + x].x = vetex_found_.x;
 			//vmap[y*cols + x].y = vetex_found_.y;
