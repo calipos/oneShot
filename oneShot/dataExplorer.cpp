@@ -12,10 +12,10 @@
 #include "opencv2/opencv.hpp"
 #endif
 //#define CHECK_CUDA_DOWNSAMPLE
-#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
+//#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
 //#define CHECK_CUDA_RAYCAST
 
-//#define PCL_SHOW
+#define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
 #endif // PCL_SHOW
@@ -426,11 +426,9 @@ namespace unre
 						float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) + t.x;
 						float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) + t.y;
 						float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z) + t.z;
-
-						float v_part_norm = v_x * v_x + v_y * v_y;
-
-						
-
+						float diff_x = v_g_x + t.x;
+						float diff_y = v_g_y + t.y;
+						float v_part_norm = diff_x * diff_x + diff_y * diff_y;
 						//v_z = v_z + t.z;
 						v_x = (v_x) * stream2Intr[1]->ptr<double>(0)[2];
 						v_y = (v_y) * stream2Intr[1]->ptr<double>(1)[2];
@@ -470,7 +468,7 @@ namespace unre
 							if (coo.x >= 0 && coo.y >= 0 && coo.x < show2.cols && coo.y < show2.rows)         //6
 							{
 								//v_part_norm += this_v_z*this_v_z;
-								float distance_sqr = v_part_norm+ this_v_z*this_v_z;
+								float distance_sqr = v_part_norm+ (v_g_z-t.z)*(v_g_z - t.z);
 								float weight = 1. / (coo.x - 1080 / 2)*(coo.x - 1080 / 2) + (coo.y - 720 / 2)*(coo.y - 720 / 2);
 								float Dp_scaled = cpu_data.ptr<float>(coo.y)[coo.x]; //meters
 								float distance = sqrtf(distance_sqr);
@@ -514,11 +512,13 @@ namespace unre
 				}			
 #endif			
 			}
-						
+			auto origin = t_;
+			origin.x*-1.;
+			origin.y*-1.;
 			raycastPoint(volume, dev_vmap, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2],
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_inv, t_, truct);
+				R_inv, origin, truct);
 
 #ifdef CHECK_CUDA_RAYCAST					
 			if (0) //cpu仿真raycast
@@ -1057,8 +1057,8 @@ namespace unre
 			{
 				cv::Point3f tempPoint;
 				tempPoint.x = (j ) * chessUnitSize.width*0.001;
-				tempPoint.y = (i ) * chessUnitSize.height*0.001;
-				tempPoint.z = 0;// VOLUME_SIZE_Z*(-0.5);
+				tempPoint.y = (chessUnitSize.height-i-1 ) * chessUnitSize.height*0.001;
+				tempPoint.z = 0.;// VOLUME_SIZE_Z*(0.5);
 				true3DPointSet.push_back(tempPoint);
 				true3DPointSet_cx += tempPoint.x;
 				true3DPointSet_cy += tempPoint.y;
@@ -1066,14 +1066,12 @@ namespace unre
 		}
 		true3DPointSet_cx /= true3DPointSet.size();
 		true3DPointSet_cy /= true3DPointSet.size();
-		//float x_offset =  - true3DPointSet_cx;
-		//float y_offset =  - true3DPointSet_cy;
 		float x_offset = VOLUME_SIZE_X*0.5 - true3DPointSet_cx;
 		float y_offset = VOLUME_SIZE_Y*0.5 - true3DPointSet_cy;
 		for (size_t i = 0; i < true3DPointSet.size(); i++)
 		{
-			true3DPointSet[i].x -= x_offset;
-			true3DPointSet[i].y -= y_offset;
+			true3DPointSet[i].x += x_offset;
+			true3DPointSet[i].y += y_offset;
 		}
 
 		std::vector<cv::Mat*> imgs;

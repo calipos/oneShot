@@ -241,12 +241,12 @@ int test_opencv_pnp()
 
 int TEST_calib()
 {
-	test_chessSort();
-	return 0;
-	the_RT_means();
-	return 0;
-	test_opencv_pnp();
-	return 0;
+	//test_chessSort();
+	//return 0;
+	//the_RT_means();
+	//return 0;
+	//test_opencv_pnp();
+	//return 0;
 
 	{
 		unre::DataExplorer de(3, true);
