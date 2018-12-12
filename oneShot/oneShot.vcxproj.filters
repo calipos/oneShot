@@ -96,6 +96,9 @@
     <ClInclude Include="fillHoles.h">
       <Filter>头文件\cuda</Filter>
     </ClInclude>
+    <ClInclude Include="opencvAssistant.h">
+      <Filter>头文件\utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">
@@ -148,6 +151,9 @@
     </ClCompile>
     <ClCompile Include="TEST_generate_testDepth.cpp">
       <Filter>源文件\TEST</Filter>
+    </ClCompile>
+    <ClCompile Include="opencvAssistant.cpp">
+      <Filter>源文件\utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

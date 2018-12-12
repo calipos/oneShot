@@ -101,9 +101,9 @@ operator* (const Mat33& m, const float3& vec)
 
 template<typename T> struct numeric_limits;
 
-#define VOLUME_SIZE_X (2.)
-#define VOLUME_SIZE_Y (2.)
-#define VOLUME_SIZE_Z (2.)
+#define VOLUME_SIZE_X (1.024)
+#define VOLUME_SIZE_Y (1.024)
+#define VOLUME_SIZE_Z (1.024)
 
 
 enum 

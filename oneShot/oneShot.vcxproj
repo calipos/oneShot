@@ -173,6 +173,7 @@
     <ClInclude Include="iofile.h" />
     <ClInclude Include="jsonExplorer.h" />
     <ClInclude Include="logg.h" />
+    <ClInclude Include="opencvAssistant.h" />
     <ClInclude Include="realSense.h" />
     <ClInclude Include="ringBuffer.h" />
     <ClInclude Include="sensor.h" />
@@ -184,6 +185,7 @@
     <ClCompile Include="deviceExplorer.cpp" />
     <ClCompile Include="JsonExplorer.cpp" />
     <ClCompile Include="logg.cpp" />
+    <ClCompile Include="opencvAssistant.cpp" />
     <ClCompile Include="TEST_buffer_thread.cpp" />
     <ClCompile Include="dataExplorer.cpp" />
     <ClCompile Include="iofile.cpp" />

@@ -13,6 +13,172 @@
 #include "rapidjson/stringbuffer.h"
 
 #include"opencv2/opencv.hpp"
+#include "opencvAssistant.h"
+
+void test_chessSort()
+{
+	cv::Size chessBoardSize(3, 4);
+	std::vector<cv::Point2f> coos;
+	
+	{
+		coos.push_back(cv::Point2f(1, 4));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(3, 4));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(1, 1));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(3, 1));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}		
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(3, 4));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(1, 4));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(3, 1));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(1, 1));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(1, 1));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(3, 1));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(1, 4));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(3, 4));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(3, 1));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(1, 1));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(3, 4));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(1, 4));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+	
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(1, 4));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(1, 1));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(3, 4));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(3, 1));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+	
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(1, 1));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(1, 4));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(3, 1));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(3, 4));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+	
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(3, 4));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(3, 1));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(1, 4));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(1, 1));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+
+	{
+		coos.clear();
+		coos.push_back(cv::Point2f(3, 1));
+		coos.push_back(cv::Point2f(3, 2));
+		coos.push_back(cv::Point2f(3, 3));
+		coos.push_back(cv::Point2f(3, 4));
+		coos.push_back(cv::Point2f(2, 1));
+		coos.push_back(cv::Point2f(2, 2));
+		coos.push_back(cv::Point2f(2, 3));
+		coos.push_back(cv::Point2f(2, 4));
+		coos.push_back(cv::Point2f(1, 1));
+		coos.push_back(cv::Point2f(1, 2));
+		coos.push_back(cv::Point2f(1, 3));
+		coos.push_back(cv::Point2f(1, 4));
+		checkCandidateCornersOrder(coos, chessBoardSize);
+	}
+	LOG(INFO) << 1;
+	return;
+}
+
+int the_RT_means()
+{
+	std::vector<cv::Point3f> gt;
+	std::vector<cv::Point2f> coo;
+	gt.push_back(cv::Point3f(1., 1., 1.));
+	gt.push_back(cv::Point3f(1., -1., 1.));
+	gt.push_back(cv::Point3f(-1., -1., 1.));
+	gt.push_back(cv::Point3f(-1., 1., 1.));
+	coo.push_back(cv::Point2f(2., -2.));
+	coo.push_back(cv::Point2f(0., -2.));
+	coo.push_back(cv::Point2f(0., 0.));
+	coo.push_back(cv::Point2f(2., 0.));
+	cv::Mat intr = cv::Mat::zeros(3, 3, CV_64FC1);
+	intr.ptr<double>(0)[0] = 1;
+	intr.ptr<double>(1)[1] = 1;
+	intr.ptr<double>(2)[2] = 1.0;
+	cv::Mat Rvect;
+	cv::Mat t;
+	cv::solvePnP(gt, coo, intr, cv::Mat::zeros(1, 5, CV_64FC1), Rvect, t);
+	cv::Mat Rmetrix;
+	cv::Rodrigues(Rvect, Rmetrix);
+	return 0;
+}
+
 int test_opencv_pnp()
 {
 	std::vector<cv::Point3f> gtPoints;
@@ -22,7 +188,8 @@ int test_opencv_pnp()
 	{
 		for (size_t j = 0; j < chessBoardSize.width; j++)
 		{
-			gtPoints.emplace_back(cv::Point3f(unitSize.width*j, unitSize.height*i,0.));
+			//gtPoints.emplace_back(cv::Point3f(unitSize.width*(chessBoardSize.width-j-1), unitSize.height*(chessBoardSize.height-i-1),0.));
+			gtPoints.emplace_back(cv::Point3f(unitSize.width*( j ), unitSize.height*( i ), 0.));
 		}
 	}
 	cv::Mat img = cv::imread("../../captured.jpg");
@@ -74,19 +241,23 @@ int test_opencv_pnp()
 
 int TEST_calib()
 {
-	//test_opencv_pnp();
-	//return 0;
+	test_chessSort();
+	return 0;
+	the_RT_means();
+	return 0;
+	test_opencv_pnp();
+	return 0;
 
 	{
 		unre::DataExplorer de(3, true);
 		de.calibAllStream();
 		de.deleteDevice();
 	}
-	{
-		unre::DataExplorer de(3, false);
-		de.getBuffer_fortest3();
-		de.deleteDevice();
-	}
+	//{
+	//	unre::DataExplorer de(3, false);
+	//	de.getBuffer_fortest3();
+	//	de.deleteDevice();
+	//}
 
 	return 0;
 }

@@ -6,15 +6,16 @@
 #include"dataExplorer.h"
 
 #include"unreGpu.h"
+#include "opencvAssistant.h"
 
 #ifdef OPENCV_SHOW
 #include "opencv2/opencv.hpp"
 #endif
 //#define CHECK_CUDA_DOWNSAMPLE
-//#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
+#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
 //#define CHECK_CUDA_RAYCAST
 
-#define PCL_SHOW
+//#define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
 #endif // PCL_SHOW
@@ -282,6 +283,7 @@ namespace unre
 #endif
 #ifdef CHECK_CUDA_RAYCAST
 		short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
+		cv::Mat vmap2map = cv::Mat::zeros(show2.rows, show2.cols, CV_32FC3);
 #endif
 #ifdef PCL_SHOW
 		pcl::visualization::PCLVisualizer cloud_viewer_;
@@ -399,7 +401,7 @@ namespace unre
 
 
 			// depth_filled
-			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
+			integrateTsdfVolume(depth_midfiltered, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
 				R_, t_, truct, volume, scaledDepth);
@@ -413,9 +415,9 @@ namespace unre
 				cell_size.z = 1.*VOLUME_SIZE_Z / VOLUME_Z;
 				auto& R = R_;
 				auto& t = t_;
-				if (0)//cpu模拟cuda体素过程
+				if (1)//cpu模拟cuda体素过程
 				{				
-					for (int y = VOLUME_Y/2; y < VOLUME_Y; y++)for (int x = VOLUME_X/2; x < VOLUME_X; x++)
+					for (int y = VOLUME_Y/2; y < VOLUME_Y / 2+1; y++)for (int x = VOLUME_X/2; x < VOLUME_X / 2+1; x++)
 					{
 						float v_g_x = (x + 0.5f) * cell_size.x;
 						float v_g_y = (y + 0.5f) * cell_size.y;
@@ -518,13 +520,11 @@ namespace unre
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
 				R_inv, t_, truct);
 
-#ifdef CHECK_CUDA_RAYCAST
-			cv::Mat vmap2map = cv::Mat::zeros(show2.rows, show2.cols, CV_32FC3);
-			short2* volume___ = new short2[VOLUME_X * VOLUME_Y * VOLUME_Z];
-			cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
-
-			if (1) //cpu仿真raycast
+#ifdef CHECK_CUDA_RAYCAST					
+			if (0) //cpu仿真raycast
 			{
+				cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
+
 				for (int i = show2.rows*.5; i < show2.rows*.5+1; i++)for (int j = show2.cols*.5; j < show2.cols*.5+1; j++)
 				//for (int i = show2.rows*.5; i < show2.rows; i++)for (int j = show2.cols*.5; j < show2.cols; j++)
 				{
@@ -726,7 +726,13 @@ namespace unre
 					}
 				}
 			}
-			
+#ifdef CHECK_CUDA_RAYCAST
+			vmap2map.setTo(cv::Scalar(0., 0., 0.));
+			cudaMemcpy((void*)vmap2map.data, dev_vmap, show2.rows*show2.cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
+			cv::namedWindow("123",0);
+			cv::imshow("123", vmap2map);
+			cv::waitKey(10);
+#endif
 
 
 #endif // CHECK_CUDA_RAYCAST
@@ -774,11 +780,7 @@ namespace unre
 					cloud->points[point_cnt].x = host_vmap_m[i].x;
 					cloud->points[point_cnt].y = host_vmap_m[i].y;
 					cloud->points[point_cnt].z = host_vmap_m[i].z;
-#ifdef CHECK_CUDA_RAYCAST
-					vmap2map.at<cv::Vec3f>(i / show2.cols, i % show2.cols)[0] = host_vmap_m[i].x;
-					vmap2map.at<cv::Vec3f>(i / show2.cols, i % show2.cols)[1] = host_vmap_m[i].y;
-					vmap2map.at<cv::Vec3f>(i / show2.cols, i % show2.cols)[2] = host_vmap_m[i].z;
-#endif
+
 					point_cnt++;
 				}
 			}
@@ -1056,9 +1058,7 @@ namespace unre
 				cv::Point3f tempPoint;
 				tempPoint.x = (j ) * chessUnitSize.width*0.001;
 				tempPoint.y = (i ) * chessUnitSize.height*0.001;
-				//tempPoint.x = (chessBoradSize.width - j - 1) * chessUnitSize.width;
-				//tempPoint.y = (chessBoradSize.height - i - 1) * chessUnitSize.height;
-				tempPoint.z = VOLUME_SIZE_Z*(-0.5);
+				tempPoint.z = 0;// VOLUME_SIZE_Z*(-0.5);
 				true3DPointSet.push_back(tempPoint);
 				true3DPointSet_cx += tempPoint.x;
 				true3DPointSet_cy += tempPoint.y;
@@ -1066,12 +1066,14 @@ namespace unre
 		}
 		true3DPointSet_cx /= true3DPointSet.size();
 		true3DPointSet_cy /= true3DPointSet.size();
+		//float x_offset =  - true3DPointSet_cx;
+		//float y_offset =  - true3DPointSet_cy;
 		float x_offset = VOLUME_SIZE_X*0.5 - true3DPointSet_cx;
 		float y_offset = VOLUME_SIZE_Y*0.5 - true3DPointSet_cy;
 		for (size_t i = 0; i < true3DPointSet.size(); i++)
 		{
-			true3DPointSet[i].x += x_offset;
-			true3DPointSet[i].y += y_offset;
+			true3DPointSet[i].x -= x_offset;
+			true3DPointSet[i].y -= y_offset;
 		}
 
 		std::vector<cv::Mat*> imgs;
@@ -1122,11 +1124,12 @@ namespace unre
 					if (patternfound)
 					{
 						cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(15, 15), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-						for (int pointIdx = 0; pointIdx < srcCandidateCorners.size(); pointIdx++)
-						{
-							srcCandidateCorners[pointIdx].x -= grayCalibImgs[i].cols*0.5;
-							srcCandidateCorners[pointIdx].y -= grayCalibImgs[i].rows*0.5;
-						}
+						checkCandidateCornersOrder(srcCandidateCorners, chessBoradSize);
+						//for (int pointIdx = 0; pointIdx < srcCandidateCorners.size(); pointIdx++)
+						//{
+						//	srcCandidateCorners[pointIdx].x -= grayCalibImgs[i].cols*0.5;
+						//	srcCandidateCorners[pointIdx].y -= grayCalibImgs[i].rows*0.5;
+						//}
 						cv::Mat intr = stream2Intr[i]->clone();
 						cv::Mat Rvect;
 						cv::Mat t;
@@ -1134,7 +1137,6 @@ namespace unre
 						cv::Mat Rmetrix;
 						cv::Rodrigues(Rvect, Rmetrix);						
 						Rmetrix.copyTo(std::get<0>(stream2Extr[i]));
-						//t *= 0.001;
 						t.copyTo(std::get<1>(stream2Extr[i]));
 						LOG(INFO) << Rmetrix;
 						LOG(INFO) << t;
@@ -1161,12 +1163,14 @@ namespace unre
 					{
 						continue;
 					}
-					cv::Mat testCalibImg = cv::imread("captured.jpg",0);
+					
+					cv::Mat testCalibImg = cv::imread(std::to_string(i) + ".jpg",0);
 					std::vector<cv::Point2f> srcCandidateCorners;
 					bool patternfound = cv::findChessboardCorners(testCalibImg, chessBoradSize, srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
 					if (patternfound)
 					{
 						cv::cornerSubPix(testCalibImg, srcCandidateCorners, cv::Size(11, 11), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+						checkCandidateCornersOrder(srcCandidateCorners, chessBoradSize);
 						cv::Mat intr = stream2Intr[i]->clone();
 						cv::Mat Rvect;
 						cv::Mat t;
