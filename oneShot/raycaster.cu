@@ -101,6 +101,128 @@ __device__ __forceinline__ float
 	return fmin(fmin(txmax, tymax), tzmax);
 }
 
+__device__ __forceinline__ void
+getMinMaxTime(const float3& origin, const float3& dir, float&minTime, float&maxTime)
+{
+	float txmin = 0;
+	float tymin = 0;
+	float tzmin = 0;
+	float txmax = 0;
+	float tymax = 0;
+	float tzmax = 0;
+	if (dir.x>0)
+	{
+		if (origin.x>VOLUME_SIZE_X)
+		{
+			txmin = numeric_limits<float>::max();
+			txmax = numeric_limits<float>::max();
+		}
+		else if (origin.x>0)
+		{
+			txmin = 0.;
+			txmax = (VOLUME_SIZE_X - origin.x) / dir.x;
+		}
+		else
+		{
+			txmin = ( - origin.x) / dir.x;
+			txmax = (VOLUME_SIZE_X - origin.x) / dir.x;
+		}
+	}
+	else
+	{
+		if (origin.x<0)
+		{
+			txmin = numeric_limits<float>::max();
+			txmax = numeric_limits<float>::max();
+		}
+		else if (origin.x<VOLUME_SIZE_X)
+		{
+			txmin = 0.;
+			txmax = (-origin.x) / dir.x;
+		}
+		else
+		{
+			txmin = (VOLUME_SIZE_X - origin.x) / dir.x; 
+			txmax = (-origin.x) / dir.x;
+		}
+	}
+	if (dir.y>0)
+	{
+		if (origin.y>VOLUME_SIZE_Y)
+		{
+			tymin = numeric_limits<float>::max();
+			tymax = numeric_limits<float>::max();
+		}
+		else if (origin.y>0)
+		{
+			tymin = 0.;
+			tymax = (VOLUME_SIZE_Y - origin.y) / dir.y;
+		}
+		else
+		{
+			tymin = (-origin.y) / dir.y;
+			tymax = (VOLUME_SIZE_Y - origin.y) / dir.y;
+		}
+	}
+	else
+	{
+		if (origin.y<0)
+		{
+			tymin = numeric_limits<float>::max();
+			tymax = numeric_limits<float>::max();
+		}
+		else if (origin.y<VOLUME_SIZE_Y)
+		{
+			tymin = 0;
+			tymax = (-origin.y) / dir.y;
+		}
+		else
+		{
+			tymin = (VOLUME_SIZE_Y - origin.y) / dir.y;
+			tymax = (-origin.y) / dir.y;
+		}
+	}
+	if (dir.z>0)
+	{
+		if (origin.z>VOLUME_SIZE_Z)
+		{
+			tzmin = numeric_limits<float>::max();
+			tzmax = numeric_limits<float>::max();
+		}
+		else if (origin.z>0)
+		{
+			tzmin = 0.;
+			tzmax = (VOLUME_SIZE_Z - origin.z) / dir.z;
+		}
+		else
+		{
+			tzmin = (-origin.z) / dir.z;
+			tzmax = (VOLUME_SIZE_Z - origin.z) / dir.z;
+		}
+	}
+	else
+	{
+		if (origin.z<0)
+		{
+			tzmin = numeric_limits<float>::max();
+			tzmax = numeric_limits<float>::max();
+		}
+		else if (origin.z<VOLUME_SIZE_Z)
+		{
+			tzmin = 0.;
+			tzmax = (-origin.z) / dir.z;
+		}
+		else
+		{
+			tzmin = (VOLUME_SIZE_Z - origin.z) / dir.z;
+			tzmax = (-origin.z) / dir.z;
+		}
+	}
+	maxTime = fmin(fmin(txmax, tymax), tzmax);
+	minTime = fmax(fmax(txmin, tymin), tzmin);
+}
+
+
 __device__ __forceinline__ float3
 	get_ray_next(int x, int y,
 		const float intr_cx, const float intr_cy, 
@@ -130,7 +252,7 @@ __device__ __forceinline__ int3
 	int vx = __float2int_rd(point.x / cell_size.x);        // round to negative infinity
 	int vy = __float2int_rd(point.y / cell_size.y);
 	int vz = __float2int_rd(point.z / cell_size.z);
-	return make_int3(vx, vy, -vz);
+	return make_int3(vx, vy, vz);
 }
 
 __device__ __forceinline__ bool
@@ -157,15 +279,15 @@ __device__ __forceinline__ float
 
 	float vx = (g.x + 0.5f) * (cell_size.x);
 	float vy = (g.y + 0.5f) * (cell_size.y);
-	float vz = -(g.z + 0.5f) * (cell_size.z);
+	float vz = (g.z + 0.5f) * (cell_size.z);
 
 	g.x = (point.x < vx) ? (g.x - 1) : g.x;
 	g.y = (point.y < vy) ? (g.y - 1) : g.y;
-	g.z = (point.z > vz) ? (g.z - 1) : g.z;
+	g.z = (point.z < vz) ? (g.z - 1) : g.z;
 
 	float a = (point.x - (g.x + 0.5f) * cell_size.x) / cell_size.x;
 	float b = (point.y - (g.y + 0.5f) * cell_size.y) / cell_size.y;
-	float c = (-point.z - (g.z + 0.5f) * cell_size.z) / cell_size.z;
+	float c = (point.z - (g.z + 0.5f) * cell_size.z) / cell_size.z;
 			
 	float res = 
 		readTsdf(volume, g.x + 0, g.y + 0, g.z + 0) * (1 - a) * (1 - b) * (1 - c) +
@@ -190,7 +312,7 @@ __global__  void
 	rayCastPointKernel(const short2* volume, float3* vmap, int rows, int cols,
 		const float intr_cx, const float intr_cy, 
 		const float intr_fx, const float intr_fy,
-		const Mat33 R_inv, const float3 t_, const float tranc_dist, float3 cell_size)
+		const Mat33 R_inv, const float3 t_, const float3 cameraPos_, const float tranc_dist, float3 cell_size)
 {
 	int x = threadIdx.x + blockIdx.x * RayCaster::CTA_SIZE_X;
 	int y = threadIdx.y + blockIdx.y * RayCaster::CTA_SIZE_Y;
@@ -198,17 +320,8 @@ __global__  void
 	if (x >= cols || y >= rows)
 		return;		
 			
-	float3 ray_start = t_;
-	//float3 ray_next = R_ * get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) + t_;
+	float3 ray_start = cameraPos_;
 	float3 ray_next = R_inv * (get_ray_next(x, y, intr_cx, intr_cy, intr_fx, intr_fy) - t_);
-	//if (ray_next.z > ray_start.z&&ray_start.z>0)
-	//{
-	//	ray_next = ray_next*-1.;		
-	//}
-	//if (ray_next.z < ray_start.z&&ray_start.z<0)
-	//{
-	//	ray_next = ray_next*-1.;
-	//}
 
 	float3 ray_dir = normalized(ray_next - ray_start);	
 	//ensure that it isn't a degenerate case
@@ -216,9 +329,9 @@ __global__  void
 	ray_dir.y = (ray_dir.y == 0.f) ? 1e-15 : ray_dir.y;
 	ray_dir.z = (ray_dir.z == 0.f) ? 1e-15 : ray_dir.z;
 	// computer time when entry and exit volume
-	float time_start_volume = getMinTime(ray_start, ray_dir);
-	float time_exit_volume = getMaxTime(ray_start, ray_dir);
-
+	float time_start_volume = 0.0;
+	float time_exit_volume = 0.0;
+	getMinMaxTime(ray_start, ray_dir, time_start_volume, time_exit_volume);
 	const float min_dist = 0.f;         //in meters
 	time_start_volume = fmax(time_start_volume, min_dist);
 	if (time_start_volume >= time_exit_volume)
@@ -253,10 +366,7 @@ __global__  void
 		
 		if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
 		{
-			//vmap[y*cols + x].x = g.x;
-			//vmap[y*cols + x].y = g.y;
-			//vmap[y*cols + x].z = g.z;
-			//break;
+			
 			//float3 vetex_found_ = ray_start + ray_dir * time_curr;
 			//vmap[y*cols + x].x = vetex_found_.x;
 			//vmap[y*cols + x].y = vetex_found_.y;
@@ -288,7 +398,7 @@ __global__  void
 void
 raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
-	Mat33 R_inv, float3 t_, float tranc_dist)
+	Mat33 R_inv, float3 t_, float3 cameraPos_, float tranc_dist)
 {
 
 	dim3 block(RayCaster::CTA_SIZE_X, RayCaster::CTA_SIZE_Y);
@@ -301,7 +411,7 @@ raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 
 	rayCastPointKernel << <grid, block >> >(volume, vmap, rows, cols,
 		intr_cx, intr_cy, intr_fx, intr_fy,
-		R_inv, t_, tranc_dist, cell_size);
+		R_inv, t_, cameraPos_, tranc_dist, cell_size);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 }

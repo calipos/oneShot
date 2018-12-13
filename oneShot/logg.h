@@ -26,6 +26,7 @@ const int ERROR = GLOG_ERROR;
 const int FATAL = GLOG_FATAL;
 
 #define LOGDIRPATH "./UnreLogDir/"
+#define CALIBDIRPATH "./CalibData/"
 
 class mkLogDir
 {
@@ -33,6 +34,7 @@ public:
 	mkLogDir() 
 	{
 		mkUnreLogDir();
+		mkCalibDataDir();
 	};
 	~mkLogDir() {};
 	int mkUnreLogDir()
@@ -40,6 +42,14 @@ public:
 		if (!unre::FileOP::FolderExist(LOGDIRPATH))
 		{
 			unre::FileOP::MkDir(LOGDIRPATH);
+		}
+		return 0;
+	}
+	int mkCalibDataDir()
+	{
+		if (!unre::FileOP::FolderExist(CALIBDIRPATH))
+		{
+			unre::FileOP::MkDir(CALIBDIRPATH);
 		}
 		return 0;
 	}

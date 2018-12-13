@@ -144,13 +144,14 @@ scaleDepth(const short* depth, float* scaled, const int rows, const int cols,
 	if (x >= cols || y >= rows)
 		return;
 
-	int Dp = depth[y*cols + x];
 
+
+	int Dp = depth[y*cols + x];
 	float xl = (x - intr_cx) / intr_fx;
 	float yl = (y - intr_cy) / intr_fy;
 	float lambda = sqrtf(xl * xl + yl * yl + 1);
-
 	scaled[y*cols + x] = Dp * lambda / 1000.f; //meters
+
 }
 
 
@@ -235,7 +236,7 @@ tsdf23(const float* depthScaled, short2* volume, int rows, int cols,
 __global__ void
 self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
-	float tranc_dist, Mat33 R, float3 t, float3 cell_size)
+	float tranc_dist, Mat33 R, float3 t, float3 cameraPos, float3 cell_size)
 {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -249,10 +250,12 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 	float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) + t.x;
 	float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) + t.y;
 	float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z) + t.z;
-	float diff_x = v_g_x + t.x;
-	float diff_y = v_g_y + t.y;
-
-	float v_part_norm = diff_x * diff_x + diff_y * diff_y;
+	float vx_inCamera = v_x;
+	float vy_inCamera = v_y;
+	float vz_inCamera = v_z;
+	float vx_inCamera_increase = R.data[0].z * cell_size.z;
+	float vy_inCamera_increase = R.data[1].z * cell_size.z;
+	float vz_inCamera_increase = R.data[2].z * cell_size.z;
 
 	v_x = (v_x)* intr_cx;
 	v_y = (v_y)* intr_cy;
@@ -271,13 +274,16 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 	//#pragma unroll
 	for (int z = 0; z <VOLUME_Z;
 		++z,
-		v_g_z -= cell_size.z,
-		z_scaled -= R.data[2].z*cell_size.z,
-		v_x -= Rcurr_inv_0_z_scaled,
-		v_y -= Rcurr_inv_1_z_scaled,
+		v_g_z += cell_size.z,
+		z_scaled += R.data[2].z*cell_size.z,
+		v_x += Rcurr_inv_0_z_scaled,
+		v_y += Rcurr_inv_1_z_scaled,
+		vx_inCamera += vx_inCamera_increase,
+		vy_inCamera += vy_inCamera_increase,
+		vz_inCamera += vz_inCamera_increase,
 		pos += elem_step)
 	{
-		float this_v_z = v_z - z_scaled;
+		float this_v_z = v_z + z_scaled;
 		float inv_z = 1.0f / (this_v_z);
 		if (inv_z < 0)
 			continue;
@@ -292,7 +298,7 @@ self_volume_kernel(const float* depth_raw, short2* volume, int rows, int cols,
 		if (coo.x >= 0 && coo.y >= 0 && coo.x < cols && coo.y < rows)         //6
 		{
 			//v_part_norm += this_z*this_z;
-			float distance_sqr = v_part_norm + (v_g_z - t.z)*(v_g_z - t.z);
+			float distance_sqr = vx_inCamera*vx_inCamera + vy_inCamera*vy_inCamera + vz_inCamera*vz_inCamera;
 			float radius = sqrtf((coo.x - cols / 2)*(coo.x - cols / 2) + (coo.y - rows / 2)*(coo.y - rows / 2));
 			//float weight = radius/ distance;
 			float weight = 1.f / radius;
@@ -404,7 +410,7 @@ self_volume_kernel2(const float* depth_raw, short2* volume, int rows, int cols,
 
 void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
-	Mat33 R, float3 t, float tranc_dist, short2* volume, float*&depthRawScaled)
+	Mat33 R, float3 t, float3 cameraPos, float tranc_dist, short2* volume, float*&depthRawScaled)
 {
 
 
@@ -430,7 +436,7 @@ void integrateTsdfVolume(const short* depth_raw, int rows, int cols,
 	dim3 grid(divUp(VOLUME_X, block.x), divUp(VOLUME_Y, block.y));
 	self_volume_kernel << <grid, block >> >(depthRawScaled, volume, rows, cols,
 		intr_cx, intr_cy, intr_fx, intr_fy,
-		tranc_dist, R, t, cell_size);
+		tranc_dist, R, t, cameraPos, cell_size);
 	//tsdf23 << <grid, block >> >(depthRawScaled, volume, rows, cols,
 	//	intr_cx, intr_cy, intr_fx, intr_fy,
 	//	tranc_dist,R, t, cell_size);

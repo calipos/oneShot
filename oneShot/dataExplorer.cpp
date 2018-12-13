@@ -296,7 +296,7 @@ namespace unre
 		cloud_viewer_.setCameraClipDistances(0.01, 10.01);
 #endif
 		int time__ = -500;
-		float truct = 0.1;
+		float truct = 0.03;
 		while (time__--)
 		{
 			auto xxx = ((FrameRingBuffer<unsigned char>*)bufferVecP[0].data)->pop(show1.data);
@@ -334,18 +334,23 @@ namespace unre
 			cv::resize(testDepthMat, show2, cv::Size(1080,720));			
 */			
 
-			Mat33 R_(std::get<0>(stream2Extr[2]).ptr<double>(0),
-				std::get<0>(stream2Extr[2]).ptr<double>(1),
-				std::get<0>(stream2Extr[2]).ptr<double>(2));
-			cv::Mat R_inv_cv = std::get<0>(stream2Extr[2]).inv();
+			Mat33 R_(std::get<0>(stream2Extr[1]).ptr<double>(0),
+				std::get<0>(stream2Extr[1]).ptr<double>(1),
+				std::get<0>(stream2Extr[1]).ptr<double>(2));
+			cv::Mat R_inv_cv = std::get<0>(stream2Extr[1]).inv();
 			Mat33 R_inv(R_inv_cv.ptr<double>(0),
 				R_inv_cv.ptr<double>(1),
 				R_inv_cv.ptr<double>(2));
 			float3 t_;
-			t_.x = std::get<1>(stream2Extr[2]).ptr<double>(0)[0] ;
-			t_.y = std::get<1>(stream2Extr[2]).ptr<double>(1)[0] ;
-			t_.z = std::get<1>(stream2Extr[2]).ptr<double>(2)[0] ;
-			
+			t_.x = std::get<1>(stream2Extr[1]).ptr<double>(0)[0] ;
+			t_.y = std::get<1>(stream2Extr[1]).ptr<double>(1)[0] ;
+			t_.z = std::get<1>(stream2Extr[1]).ptr<double>(2)[0] ;
+			cv::Mat deepCameraPos_cv = R_inv_cv*(0 - std::get<1>(stream2Extr[1]));
+			float3 deepCameraPos_;
+			deepCameraPos_.x = deepCameraPos_cv.ptr<double>(0)[0];
+			deepCameraPos_.y = deepCameraPos_cv.ptr<double>(1)[0];
+			deepCameraPos_.z = deepCameraPos_cv.ptr<double>(2)[0];
+
 			cudaMemcpy((void*)depth_dev, (void*)show2.data, show2.rows*show2.cols*sizeof(unsigned short),cudaMemcpyHostToDevice);
 			int downsample_h2 = show2.rows / 4;
 			int downsample_w2 = show2.cols / 4;
@@ -360,11 +365,11 @@ namespace unre
 				depth_4, downsample_h4, downsample_w4
 				);
 #else 			
-			midfilter33AndFillHoles44_downsample2t(depth_dev, show2.rows, show2.cols,
-				depth_midfiltered, depth_filled,
-				depth_2, downsample_h2, downsample_w2,
-				depth_3, downsample_h3, downsample_w3
-			);
+			//midfilter33AndFillHoles44_downsample2t(depth_dev, show2.rows, show2.cols,
+			//	depth_midfiltered, depth_filled,
+			//	depth_2, downsample_h2, downsample_w2,
+			//	depth_3, downsample_h3, downsample_w3
+			//);
 #endif
 #ifdef CHECK_CUDA_DOWNSAMPLE
 			cv::Mat midfiltered_cvmat = cv::Mat(show2.rows, show2.cols, CV_16SC1);
@@ -400,11 +405,11 @@ namespace unre
 
 
 
-			// depth_filled
-			integrateTsdfVolume(depth_midfiltered, show2.rows, show2.cols,
+			// depth_filled depth_dev depth_midfiltered
+			integrateTsdfVolume(depth_dev, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2], 
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_, t_, truct, volume, scaledDepth);
+				R_, t_, deepCameraPos_, truct, volume, scaledDepth);
 			{
 #ifdef CHECK_CUDA_VOXEL				
 				cv::Mat cpu_data(show2.rows, show2.cols, CV_32FC1);
@@ -426,8 +431,8 @@ namespace unre
 						float v_x = (R.data[0].x * v_g_x + R.data[0].y * v_g_y + R.data[0].z * v_g_z) + t.x;
 						float v_y = (R.data[1].x * v_g_x + R.data[1].y * v_g_y + R.data[1].z * v_g_z) + t.y;
 						float v_z = (R.data[2].x * v_g_x + R.data[2].y * v_g_y + R.data[2].z * v_g_z) + t.z;
-						float diff_x = v_g_x + t.x;
-						float diff_y = v_g_y + t.y;
+						float diff_x = v_g_x - deepCameraPos_.x;
+						float diff_y = v_g_y - deepCameraPos_.y;
 						float v_part_norm = diff_x * diff_x + diff_y * diff_y;
 						//v_z = v_z + t.z;
 						v_x = (v_x) * stream2Intr[1]->ptr<double>(0)[2];
@@ -447,13 +452,13 @@ namespace unre
 						//#pragma unroll
 						for (int z = 0; z <VOLUME_Z;
 							++z,
-							v_g_z -= cell_size.z,
-							z_scaled -= R.data[2].z*cell_size.z,
-							v_x -= Rcurr_inv_0_z_scaled,
-							v_y -= Rcurr_inv_1_z_scaled,
+							v_g_z += cell_size.z,
+							z_scaled += R.data[2].z*cell_size.z,
+							v_x += Rcurr_inv_0_z_scaled,
+							v_y += Rcurr_inv_1_z_scaled,
 							pos += elem_step)
 						{
-							float this_v_z = v_z - z_scaled;
+							float this_v_z = v_z + z_scaled;
 							float inv_z = 1.0f / (this_v_z);
 							if (inv_z < 0)
 								continue;
@@ -468,7 +473,7 @@ namespace unre
 							if (coo.x >= 0 && coo.y >= 0 && coo.x < show2.cols && coo.y < show2.rows)         //6
 							{
 								//v_part_norm += this_v_z*this_v_z;
-								float distance_sqr = v_part_norm+ (v_g_z-t.z)*(v_g_z - t.z);
+								float distance_sqr = v_part_norm+ (v_g_z- deepCameraPos_.z)*(v_g_z - deepCameraPos_.z);
 								float weight = 1. / (coo.x - 1080 / 2)*(coo.x - 1080 / 2) + (coo.y - 720 / 2)*(coo.y - 720 / 2);
 								float Dp_scaled = cpu_data.ptr<float>(coo.y)[coo.x]; //meters
 								float distance = sqrtf(distance_sqr);
@@ -512,16 +517,14 @@ namespace unre
 				}			
 #endif			
 			}
-			auto origin = t_;
-			origin.x*-1.;
-			origin.y*-1.;
+			
 			raycastPoint(volume, dev_vmap, show2.rows, show2.cols,
 				stream2Intr[1]->ptr<double>(0)[2], stream2Intr[1]->ptr<double>(1)[2],
 				stream2Intr[1]->ptr<double>(0)[0], stream2Intr[1]->ptr<double>(1)[1],
-				R_inv, origin, truct);
+				R_inv, t_, deepCameraPos_,truct);
 
 #ifdef CHECK_CUDA_RAYCAST					
-			if (0) //cpu仿真raycast
+			if (1) //cpu仿真raycast
 			{
 				cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
 
@@ -532,10 +535,10 @@ namespace unre
 					{
 						continue;
 					}
-					cv::Mat ray_start = cv::Mat(3, 1, CV_64FC1);
-					ray_start.ptr<double>(0)[0] = t_.x;
-					ray_start.ptr<double>(1)[0] = t_.y;
-					ray_start.ptr<double>(2)[0] = t_.z;
+					cv::Mat ray_start = deepCameraPos_cv.clone();
+					//ray_start.ptr<double>(0)[0] = t_.x;
+					//ray_start.ptr<double>(1)[0] = t_.y;
+					//ray_start.ptr<double>(2)[0] = t_.z;
 
 					cv::Mat cmos_pos = cv::Mat(3, 1, CV_64FC1);
 					cmos_pos.ptr<double>(0)[0] = 0.5*(j - stream2Intr[1]->ptr<double>(0)[2]) / stream2Intr[1]->ptr<double>(0)[0];
@@ -543,7 +546,7 @@ namespace unre
 					cmos_pos.ptr<double>(2)[0] = 0.5;
 					
 					//cv::Mat ray_next = std::get<0>(stream2Extr[2]).inv()*(cmos_pos - ray_start);
-					cv::Mat ray_next = R_inv_cv*(cmos_pos - ray_start);
+					cv::Mat ray_next = R_inv_cv*(cmos_pos - std::get<1>(stream2Extr[1]));
 					cv::Mat ray_next_back = std::get<0>(stream2Extr[2])*ray_next + ray_start;
 
 					cv::Mat ray_dir = cv::Mat(ray_next - ray_start);
@@ -552,59 +555,124 @@ namespace unre
 						+ ray_dir.ptr<double>(2)[0] * ray_dir.ptr<double>(2)[0];
 					mod = sqrtf(mod);
 					ray_dir /= mod;
+					ray_dir.ptr<double>(0)[0] = (ray_dir.ptr<double>(0)[0] == 0.f) ? 1e-15 : ray_dir.ptr<double>(0)[0];
+					ray_dir.ptr<double>(0)[1] = (ray_dir.ptr<double>(0)[1] == 0.f) ? 1e-15 : ray_dir.ptr<double>(0)[1];
+					ray_dir.ptr<double>(0)[2] = (ray_dir.ptr<double>(0)[2] == 0.f) ? 1e-15 : ray_dir.ptr<double>(0)[2];
 
-
-					double txmin = 0., tymin = 0., tzmin = 0., txmax = 0., tymax = 0., tzmax = 0.;
-					if (ray_start.ptr<double>(0)[0]<0 && ray_dir.ptr<double>(0)[0] > 0)
+					float txmin = 0;
+					float tymin = 0;
+					float tzmin = 0;
+					float txmax = 0;
+					float tymax = 0;
+					float tzmax = 0;
+					if (ray_dir.ptr<double>(0)[0]>0)
 					{
-						txmin = -ray_start.ptr<double>(0)[0] / ray_dir.ptr<double>(0)[0];
+						if (ray_start.ptr<double>(0)[0]>VOLUME_SIZE_X)
+						{
+							txmin = FLT_MAX;
+							txmax = FLT_MAX;
+						}
+						else if (ray_start.ptr<double>(0)[0]>0)
+						{
+							txmin = 0;
+							txmax = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+						}
+						else
+						{
+							txmin = (-ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+							txmax = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+						}
 					}
-					else if (ray_start.ptr<double>(0)[0]>0 && ray_dir.ptr<double>(0)[0] < 0)
+					else
 					{
-						txmin = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+						if (ray_start.ptr<double>(0)[0]<0)
+						{
+							txmin = FLT_MAX;
+							txmax = FLT_MAX;
+						}
+						else if (ray_start.ptr<double>(0)[0]<VOLUME_SIZE_X)
+						{
+							txmin = 0;
+							txmax = (0 - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+						}
+						else
+						{
+							txmin = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+							txmax = (-ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0];
+						}
 					}
-					if (ray_start.ptr<double>(1)[0]<0 && ray_dir.ptr<double>(1)[0] > 0)
+					if (ray_dir.ptr<double>(1)[0]>0)
 					{
-						tymin = -ray_start.ptr<double>(1)[0] / ray_dir.ptr<double>(1)[0];
+						if (ray_start.ptr<double>(1)[0]>VOLUME_SIZE_Y)
+						{
+							tymin = FLT_MAX;
+							tymax = FLT_MAX;
+						}
+						else if (ray_start.ptr<double>(1)[0]>0)
+						{
+							tymin = 0;
+							tymax = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+						}
+						else
+						{
+							tymin = (-ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+							tymax = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+						}
 					}
-					else if (ray_start.ptr<double>(1)[0]>0 && ray_dir.ptr<double>(1)[0] < 0)
+					else
 					{
-						tymin = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+						if (ray_start.ptr<double>(1)[0]<0)
+						{
+							tymin = FLT_MAX;
+							tymax = FLT_MAX;
+						}
+						else if (ray_start.ptr<double>(1)[0]<VOLUME_SIZE_Y)
+						{
+							tymin = 0.;
+							tymax = (0 - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];;
+						}
+						else
+						{
+							tymin = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+							tymax = (-ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
+						}
 					}
-					if (ray_start.ptr<double>(2)[0]<0 && ray_dir.ptr<double>(2)[0] > 0)
+					if (ray_dir.ptr<double>(2)[0]>0)
 					{
-						tzmin = (VOLUME_SIZE_Z - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+						if (ray_start.ptr<double>(2)[0]>VOLUME_SIZE_Z)
+						{
+							tzmin = FLT_MAX;
+							tzmax = FLT_MAX;
+						}
+						else if (ray_start.ptr<double>(2)[0]>0)
+						{
+							tzmin = 0;
+							tzmax = (VOLUME_SIZE_Z - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+						}
+						else
+						{
+							tzmin = (-ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+							tzmax = (VOLUME_SIZE_Z - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+						}
 					}
-					else if (ray_start.ptr<double>(2)[0]>0 && ray_dir.ptr<double>(2)[0] < 0)
+					else
 					{
-						tzmin = -ray_start.ptr<double>(2)[0] / ray_dir.ptr<double>(2)[0]; 
+						if (ray_start.ptr<double>(2)[0]<0)
+						{
+							tzmin = FLT_MAX;
+							tzmax = FLT_MAX;
+						}
+						else if (ray_start.ptr<double>(2)[0]<VOLUME_SIZE_Z)
+						{
+							tzmin = 0;
+							tzmax = (0 - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];;
+						}
+						else
+						{
+							tzmin = (VOLUME_SIZE_Z - ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+							tzmax = (-ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0];
+						}
 					}
-
-					if (ray_start.ptr<double>(0)[0]<0 && ray_dir.ptr<double>(0)[0] > 0)
-					{
-						txmax = (VOLUME_SIZE_X - ray_start.ptr<double>(0)[0]) / ray_dir.ptr<double>(0)[0]; 
-					}
-					else if (ray_start.ptr<double>(0)[0]>0 && ray_dir.ptr<double>(0)[0] < 0)
-					{
-						txmax = -ray_start.ptr<double>(0)[0] / ray_dir.ptr<double>(0)[0];
-					}
-					if (ray_start.ptr<double>(1)[0]<0 && ray_dir.ptr<double>(1)[0] > 0)
-					{
-						tymax = (VOLUME_SIZE_Y - ray_start.ptr<double>(1)[0]) / ray_dir.ptr<double>(1)[0];
-					}
-					else if (ray_start.ptr<double>(1)[0]>0 && ray_dir.ptr<double>(1)[0] < 0)
-					{
-						tymax = -ray_start.ptr<double>(1)[0] / ray_dir.ptr<double>(1)[0]; 
-					}
-					if (ray_start.ptr<double>(2)[0]<0 && ray_dir.ptr<double>(2)[0] > 0)
-					{						
-						tzmax = -ray_start.ptr<double>(2)[0] / ray_dir.ptr<double>(2)[0];
-					}
-					else if (ray_start.ptr<double>(2)[0]>0 && ray_dir.ptr<double>(2)[0] < 0)
-					{
-						tzmax = -(VOLUME_SIZE_Z + ray_start.ptr<double>(2)[0]) / ray_dir.ptr<double>(2)[0]; 
-					}
-
 
 					double time_start_volume = fmax(fmax(txmin, tymin), tzmin);
 					double time_exit_volume = fmin(fmin(txmax, tymax), tzmax);
@@ -1058,7 +1126,7 @@ namespace unre
 				cv::Point3f tempPoint;
 				tempPoint.x = (j ) * chessUnitSize.width*0.001;
 				tempPoint.y = (chessUnitSize.height-i-1 ) * chessUnitSize.height*0.001;
-				tempPoint.z = 0.;// VOLUME_SIZE_Z*(0.5);
+				tempPoint.z =  VOLUME_SIZE_Z*(0.5);
 				true3DPointSet.push_back(tempPoint);
 				true3DPointSet_cx += tempPoint.x;
 				true3DPointSet_cy += tempPoint.y;
@@ -1077,6 +1145,7 @@ namespace unre
 		std::vector<cv::Mat*> imgs;
 		initMatVect(imgs);
 		std::vector<cv::Mat> grayCalibImgs(imgs.size(),cv::Mat());
+		int calibCnt = 20;
 		while (true)
 		{
 			pop2Mats(imgs);
@@ -1111,41 +1180,57 @@ namespace unre
 			if (cv::waitKey(1)=='o')
 			{
 				bool calibDone = true;
-				for (size_t i = 0; i < grayCalibImgs.size(); i++)
+				cv::Mat calibCooInfo = cv::Mat(chessBoradSize.height,chessBoradSize.width, CV_32FC2);
+				while (calibCnt--)
 				{
-					if (grayCalibImgs[i].cols<1)
+					for (size_t i = 0; i < grayCalibImgs.size(); i++)
 					{
-						continue;
+						if (grayCalibImgs[i].cols < 1)
+						{
+							continue;
+						}
+						std::vector<cv::Point2f> srcCandidateCorners;
+						bool patternfound = cv::findChessboardCorners(grayCalibImgs[i], chessBoradSize, srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
+						if (patternfound)
+						{
+							cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(15, 15), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+							checkCandidateCornersOrder(srcCandidateCorners, chessBoradSize);
+
+							cv::Mat calibCooInfo = cv::Mat(chessBoradSize.height, chessBoradSize.width, CV_32FC2);
+							for (int h = 0; h < chessBoradSize.height; h++)
+							{
+								for (int w = 0; w < chessBoradSize.width; w++)
+								{
+									calibCooInfo.at<cv::Vec2f>(h, w)[0] = srcCandidateCorners[h*chessBoradSize.width + w].x;
+									calibCooInfo.at<cv::Vec2f>(h, w)[1] = srcCandidateCorners[h*chessBoradSize.width + w].y;
+								}
+							}
+							cv::FileStorage fs("./CalibData/"+std::to_string(i)+"_"+std::to_string(calibCnt)+".yml", cv::FileStorage::WRITE);
+							fs << "calibCooInfo" << calibCooInfo;
+							fs.release();
+
+							//cv::Mat intr = stream2Intr[i]->clone();
+							//cv::Mat Rvect;
+							//cv::Mat t;
+							//cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
+							//cv::Mat Rmetrix;
+							//cv::Rodrigues(Rvect, Rmetrix);
+							//Rmetrix.copyTo(std::get<0>(stream2Extr[i]));
+							//t.copyTo(std::get<1>(stream2Extr[i]));
+							//LOG(INFO) << Rmetrix;
+							//LOG(INFO) << t;
+							//cv::imwrite(std::to_string(i) + ".jpg", grayCalibImgs[i]);
+						}
+						else
+						{
+							LOG(INFO) << "this time calib point found fail.";
+							calibCnt--;
+							continue;
+							//calibDone = false;
+							//break;
+						}
 					}
-					std::vector<cv::Point2f> srcCandidateCorners;
-					bool patternfound = cv::findChessboardCorners(grayCalibImgs[i], chessBoradSize, srcCandidateCorners, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE + cv::CALIB_CB_FAST_CHECK);
-					if (patternfound)
-					{
-						cv::cornerSubPix(grayCalibImgs[i], srcCandidateCorners, cv::Size(15, 15), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-						checkCandidateCornersOrder(srcCandidateCorners, chessBoradSize);
-						//for (int pointIdx = 0; pointIdx < srcCandidateCorners.size(); pointIdx++)
-						//{
-						//	srcCandidateCorners[pointIdx].x -= grayCalibImgs[i].cols*0.5;
-						//	srcCandidateCorners[pointIdx].y -= grayCalibImgs[i].rows*0.5;
-						//}
-						cv::Mat intr = stream2Intr[i]->clone();
-						cv::Mat Rvect;
-						cv::Mat t;
-						cv::solvePnP(true3DPointSet, srcCandidateCorners, intr, cv::Mat::zeros(1, 5, CV_32FC1), Rvect, t);
-						cv::Mat Rmetrix;
-						cv::Rodrigues(Rvect, Rmetrix);						
-						Rmetrix.copyTo(std::get<0>(stream2Extr[i]));
-						t.copyTo(std::get<1>(stream2Extr[i]));
-						LOG(INFO) << Rmetrix;
-						LOG(INFO) << t;
-						cv::imwrite(std::to_string(i)+".jpg", grayCalibImgs[i]);
-					}
-					else
-					{
-						calibDone = false;
-						break;
-					}
-				}			
+				}
 				if (calibDone)
 				{
 					break;
