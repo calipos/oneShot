@@ -182,6 +182,8 @@
     <ClInclude Include="unreGpu.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dataExplorerCalib.cpp" />
+    <ClCompile Include="dataExplorerOneDev.cpp" />
     <ClCompile Include="deviceExplorer.cpp" />
     <ClCompile Include="JsonExplorer.cpp" />
     <ClCompile Include="logg.cpp" />
@@ -194,6 +196,8 @@
     <ClCompile Include="TEST_dataExplorer.cpp" />
     <ClCompile Include="TEST_dataExplorer_destroy.cpp" />
     <ClCompile Include="TEST_generate_testDepth.cpp" />
+    <ClCompile Include="TEST_inverse.cpp" />
+    <ClCompile Include="TEST_OneDev.cpp" />
     <ClCompile Include="TEST_tsdf.cpp" />
     <ClCompile Include="TEST_jsonExplorer.cpp" />
     <ClCompile Include="TEST_json_write_read.cpp" />
@@ -202,6 +206,7 @@
     <ClCompile Include="TEST_subThread_pause_continue.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="colorize_deepMat.cu" />
     <CudaCompile Include="filters.cu" />
     <CudaCompile Include="nvmap.cu" />
     <CudaCompile Include="raycaster.cu" />

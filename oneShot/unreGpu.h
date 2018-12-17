@@ -71,7 +71,42 @@ struct Mat33
 		data[1] = a2;
 		data[2] = a3;
 	}
+
 };
+
+
+struct Mat33d
+{
+	double3 data[3];
+	Mat33d() {}
+	Mat33d(double3 f1, double3 f2, double3 f3)
+	{
+		data[0] = f1;
+		data[1] = f2;
+		data[2] = f3;
+	}
+	Mat33d(double*data_)
+	{
+		double3 a1;		a1.x = data_[0]; a1.y = data_[1]; a1.z = data_[2];
+		double3 a2;		a1.x = data_[3]; a1.y = data_[4]; a1.z = data_[5];
+		double3 a3;		a1.x = data_[6]; a1.y = data_[7]; a1.z = data_[8];
+		data[0] = a1;
+		data[1] = a2;
+		data[2] = a3;
+	}
+
+	Mat33d(double*d1, double*d2, double*d3)
+	{
+		double3 a1;		a1.x = d1[0]; a1.y = d1[1]; a1.z = d1[2];
+		double3 a2;		a2.x = d2[0]; a2.y = d2[1]; a2.z = d2[2];
+		double3 a3;		a3.x = d3[0]; a3.y = d3[1]; a3.z = d3[2];
+		data[0] = a1;
+		data[1] = a2;
+		data[2] = a3;
+	}
+
+};
+
 
 __device__ __forceinline__ float3
 operator+(const float3& v1, const float3& v2)
@@ -84,9 +119,19 @@ operator-(const float3& v1, const float3& v2)
 	return make_float3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
 }
 __device__ __forceinline__ float3
+operator-(const float& v1, const float3& v2)
+{
+	return make_float3(v1 - v2.x, v1 - v2.y, v1 - v2.z);
+}
+__device__ __forceinline__ float3
 operator*(const float3& v1, const float& v)
 {
 	return make_float3(v1.x * v, v1.y * v, v1.z * v);
+}
+__device__ __forceinline__ float3
+operator/(const float3& v1, const float& v)
+{
+	return make_float3(v1.x / v, v1.y / v, v1.z / v);
 }
 __device__ __forceinline__ float
 dot(const float3& v1, const float3& v2)
@@ -98,6 +143,43 @@ operator* (const Mat33& m, const float3& vec)
 {
 	return make_float3(dot(m.data[0], vec), dot(m.data[1], vec), dot(m.data[2], vec));
 }
+
+__device__ __forceinline__ double3
+operator+(const double3& v1, const double3& v2)
+{
+	return make_double3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+}
+__device__ __forceinline__ double3
+operator-(const double3& v1, const double3& v2)
+{
+	return make_double3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+}
+__device__ __forceinline__ double3
+operator-(const double& v1, const double3& v2)
+{
+	return make_double3(v1 - v2.x, v1 - v2.y, v1 - v2.z);
+}
+__device__ __forceinline__ double3
+operator*(const double3& v1, const double& v)
+{
+	return make_double3(v1.x * v, v1.y * v, v1.z * v);
+}
+__device__ __forceinline__ double3
+operator/(const double3& v1, const double& v)
+{
+	return make_double3(v1.x / v, v1.y / v, v1.z / v);
+}
+__device__ __forceinline__ double
+dot(const double3& v1, const double3& v2)
+{
+	return v1.x * v2.x + v1.y*v2.y + v1.z*v2.z;
+}
+__device__ __forceinline__ double3
+operator* (const Mat33d& m, const double3& vec)
+{
+	return make_double3(dot(m.data[0], vec), dot(m.data[1], vec), dot(m.data[2], vec));
+}
+
 
 template<typename T> struct numeric_limits;
 
@@ -121,6 +203,8 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short*&depth_midfiltered, short*&depth_filled,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
+
+int initOneDevDeep(short*&depth_input, float*&depth_output, int depthRows, int depthCols, int colorRows, int colorCols);
 
 #ifdef DOWNSAMPLE3TIMES
 void midfilter33AndFillHoles44_downsample3t(short*depth_dev1, int rows1, int cols1,
@@ -158,5 +242,14 @@ raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 	Mat33 R_inv, float3 t_, float3 cameraPos_, float tranc_dist);
 
 
+void colorize_deepMat(
+	const short* depth_old, 
+	int depthRows, int depthCols, int colorRows, int colorCols,
+	double4 deep_intr,
+	Mat33d deep_R, double3 deep_t,
+	double4 color_intr,
+	Mat33d color_R, double3 color_t,
+	float* depth_new
+);
 
 #endif

@@ -23,7 +23,11 @@ namespace unre
 		int readExtrParams();
 		const std::vector<Buffer>&getBufferVecP();
 		const std::vector<std::tuple<std::string, oneDevMap> >& getStreamInfo();
-		int calibAllStream();
+		int calibAllStream_noLaser();
+		int calibAllStream_Laser();
+		int calibData();
+		int oneDevShow();
+
 		std::unordered_map<int, cv::Mat*> stream2Intr;
 		std::unordered_map<int, std::tuple<cv::Mat, cv::Mat>> stream2Extr;
 	private:
@@ -32,8 +36,11 @@ namespace unre
 		JsonExplorer je;
 		DeviceExplorer*dev_e;
 		int exactStreamCnt = 0;
+		////分配初始空间，然后才能pop, 在之后在调用 readExtrParams();
 		int initMatVect(std::vector<cv::Mat*>&imgs);
+		
 		int pop2Mats(std::vector<cv::Mat*>&imgs);//initMatVect must be called before
+		int pop2Mats_noInfred(std::vector<cv::Mat*>&imgs);
 		bool doCalib_{false};
 	};
 }

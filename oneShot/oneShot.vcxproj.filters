@@ -155,6 +155,18 @@
     <ClCompile Include="opencvAssistant.cpp">
       <Filter>源文件\utils</Filter>
     </ClCompile>
+    <ClCompile Include="dataExplorerCalib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="dataExplorerOneDev.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="TEST_OneDev.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
+    <ClCompile Include="TEST_inverse.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="filters.cu">
@@ -167,6 +179,9 @@
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
     <CudaCompile Include="nvmap.cu">
+      <Filter>源文件\cuda</Filter>
+    </CudaCompile>
+    <CudaCompile Include="colorize_deepMat.cu">
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
   </ItemGroup>

@@ -250,14 +250,21 @@ int TEST_calib()
 
 	{
 		unre::DataExplorer de(3, true);
-		de.calibAllStream();
+		de.calibData();
 		de.deleteDevice();
 	}
-	//{
-	//	unre::DataExplorer de(3, false);
-	//	de.getBuffer_fortest3();
-	//	de.deleteDevice();
-	//}
+	return 0;
+	{
+		unre::DataExplorer de(3, true);
+		de.calibAllStream_noLaser();
+		de.deleteDevice();
+	}
+	{
+		unre::DataExplorer de(3, false);
+		de.calibAllStream_Laser();
+		de.deleteDevice();
+	}
+
 
 	return 0;
 }

@@ -21,9 +21,13 @@ extern void TEST_ogjectDestroy();
 extern int TEST_calib();
 extern int TEST_tsdf();
 extern int TEST_generate_testDepthMat();
+extern int TEST_oneDev();
+extern int TEST_inverse();
 int main()
 {
-	TEST_calib();
+	TEST_inverse();
+	TEST_oneDev();
+	//TEST_calib();
 	//TEST_generate_testDepthMat();
 	TEST_tsdf();
 	//TEST_dataExplorer_destroy();
