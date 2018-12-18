@@ -402,11 +402,61 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 31,
-		ky = 31,
+		kx = 11,
+		ky = 11,
 		STEP = 1,
 	};
 };
+
+
+template <typename Dtype>
+__global__ void computeVmapKernel(const float* depth, float* vmap, Dtype fx_inv, Dtype fy_inv, Dtype cx, Dtype cy, const int rows, const int cols)
+{
+	int u = threadIdx.x + blockIdx.x * blockDim.x;
+	int v = threadIdx.y + blockIdx.y * blockDim.y;
+	int pos_ = v*cols + u;
+	int plane_cnt = cols*rows;
+	if (u < cols && v < rows)
+	{
+		float z = depth[pos_];;//already meter / 1000.f; // load and convert: mm -> meters
+
+		if (z >0.001)
+		{
+			float vx = z * (u - cx) * fx_inv;
+			float vy = z * (v - cy) * fy_inv;
+			float vz = z;
+
+			//vmap[pos_] = vx;
+			//vmap[pos_ + plane_cnt] = vy;
+			//vmap[pos_ + 2 * plane_cnt] = vz;
+			vmap[3*pos_] = vx;
+			vmap[3*pos_ + 1] = vy;
+			vmap[3*pos_ + 2] = vz;
+		}
+		else
+		{
+			vmap[3*pos_] = numeric_limits<float>::quiet_NaN();
+			vmap[3*pos_+1] = 0;
+			vmap[3*pos_+2] = 0;
+		}
+
+	}
+}
+
+
+template<>
+int createVMap<double>(const float*dataIn, float*dataOut, const double fx, const double fy, const double cx, const double cy, const int rows, const int cols)
+{
+	dim3 block(32, 8);
+	dim3 grid(1, 1, 1);
+	grid.x = divUp(cols, block.x);
+	grid.y = divUp(rows, block.y);
+	computeVmapKernel<double> << <grid, block >> >(dataIn, dataOut, 1. / fx, 1. / fy, cx, cy, rows, cols);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+	return 0;
+}
+
 
 template <typename Dtype>
 __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, int cols)
@@ -417,8 +467,8 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 		return;
 	int plane_cnt = cols*rows;
 	int pos_ = cols*v + u;
-	nmap[pos_] = numeric_limits<float>::quiet_NaN();
-	if (isnan(vmap[pos_]))
+	
+	if (isnan(vmap[3*pos_]))
 		return;
 	int ty = min(v - NmapConfig<Dtype>::ky / 2 + NmapConfig<Dtype>::ky, rows - 1);
 	int tx = min(u - NmapConfig<Dtype>::kx / 2 + NmapConfig<Dtype>::kx, cols - 1);
@@ -433,8 +483,8 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 			if (!isnan(v_x))
 			{
 				centroid.x += v_x;
-				centroid.y += vmap[pos_2 + plane_cnt];
-				centroid.z += vmap[pos_2 + 2 * plane_cnt];
+				centroid.y += vmap[3*pos_2 + 1];
+				centroid.z += vmap[3*pos_2 + 2];
 				++counter;
 			}
 		}
@@ -451,12 +501,12 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 		{
 			int pos_3 = cols*cy + cx;
 			float3 v;
-			v.x = vmap[pos_3];
+			v.x = vmap[3*pos_3];
 			if (isnan(v.x))
 				continue;
 
-			v.y = vmap[pos_3 + plane_cnt];
-			v.z = vmap[pos_3 + 2 * plane_cnt];
+			v.y = vmap[3*pos_3 + 1];
+			v.z = vmap[3*pos_3 + 2];
 
 			float3 d = v - centroid;
 
@@ -481,18 +531,20 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 
 	u = threadIdx.x + blockIdx.x * blockDim.x;
 	v = threadIdx.y + blockIdx.y * blockDim.y;
-	nmap[pos_] = n.x;
-	nmap[pos_ + plane_cnt] = n.y;
-	nmap[pos_ + 2 * plane_cnt] = n.z;
+	nmap[3*pos_] = n.x;
+	nmap[3*pos_ + 1] = n.y;
+	nmap[3*pos_ + 2] = n.z;
 }
 
 template<>//计算vmap，vmap必须提前申请空间，其中vmap和namp的高是depthImage高的3倍：CHW的关系
-int computeNormalsEigen<float>(const float*vmap, float*nmap, const int rows, const int cols)
+int computeNormalsEigen<float>(const float*vmap, float*nmap, int rows, int cols)
 {
 	dim3 block(32, 8);
 	dim3 grid(1, 1, 1);
 	grid.x = divUp(cols, block.x);
 	grid.y = divUp(rows, block.y);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 	computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());

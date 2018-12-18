@@ -204,7 +204,7 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
 
-int initOneDevDeep(short*&depth_input, float*&depth_output, int depthRows, int depthCols, int colorRows, int colorCols);
+int initOneDevDeep(short*&depth_input, float*&depth_output, float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols);
 
 #ifdef DOWNSAMPLE3TIMES
 void midfilter33AndFillHoles44_downsample3t(short*depth_dev1, int rows1, int cols1,
@@ -220,10 +220,12 @@ void midfilter33AndFillHoles44_downsample2t(short*depth_dev1, int rows1, int col
 #endif // DOWNSAMPLE3TIMES
 
 
+template<typename T>
+int createVMap(const float*dataIn, float*dataOut, const T fx, const T fy, const T cx, const T cy, const int rows, const int cols);
 
 
 template<typename T>
-int computeNormalsEigen(const T*vmap, T*nmap, const int rows, const int cols);
+int computeNormalsEigen(const T*vmap, T*nmap, int rows, int cols);
 
 template<typename T>
 int tranformMaps(const T* vmap_src, const T* nmap_src, const T*Rmat_, const T*tvec_, T* vmap_dst, T* nmap_dst, const int& rows, const int& cols);

@@ -2,10 +2,12 @@
 #include "unreGpu.h"
 
 
-int initOneDevDeep(short*&depth_input,float*&depth_output, int depthRows, int depthCols, int colorRows, int colorCols)
+int initOneDevDeep(short*&depth_input,float*&depth_output, float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols)
 {
 	depth_input = creatGpuData<short>(depthRows*depthCols);
 	depth_output = creatGpuData<float>(colorRows*colorCols);
+	vmap = creatGpuData<float>(colorRows*colorCols * 3);
+	nmap = creatGpuData<float>(colorRows*colorCols * 3);
 	return 0;
 }
 

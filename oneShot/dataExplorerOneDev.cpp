@@ -90,7 +90,9 @@ namespace unre
 
 		short*depth_dev_input = NULL;
 		float*depth_dev_output = NULL;
-		initOneDevDeep(depth_dev_input,depth_dev_output, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
+		float*nmap = NULL;
+		float*vmap = NULL;
+		initOneDevDeep(depth_dev_input,depth_dev_output, vmap, nmap, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
 
 		double4 intr_depth;//fx,fy,cx,cy
 		intr_depth.w = stream2Intr[1]->ptr<double>(0)[0];
@@ -123,21 +125,18 @@ namespace unre
 		{
 			//pop2Mats_noInfred(imgs);
 			pop2Mats(imgs);
-			//for (size_t i = 0; i < imgs.size(); i++)
-			//{
-			//	if (imgs[i]->type()==CV_8UC1)
-			//	{
-			//		continue;
-			//	}
-			//	cv::imshow(std::to_string(i), *(imgs[i]));
-			//}
-			//cv::waitKey(12);
-			//cudaMemcpy(volume___, volume, VOLUME_X * VOLUME_Y * VOLUME_Z * sizeof(short2), cudaMemcpyDeviceToHost);
+			
 			cv::Mat showDev0(imgs[0]->rows, imgs[0]->cols, CV_8UC3);
 			memcpy(showDev0.data, imgs[0]->data, imgs[0]->rows*imgs[0]->cols * sizeof(char)*3);
 
 			cv::Mat showDev1(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
 			memcpy(showDev1.data, imgs[1]->data, imgs[1]->rows*imgs[1]->cols*sizeof(short));
+			
+			//cv::Mat colorized;
+			//transProc(imgs[0], stream2Intr[0], &std::get<0>(stream2Extr[0]), &std::get<1>(stream2Extr[0]),
+			//	imgs[1], stream2Intr[1], &std::get<0>(stream2Extr[1]), &std::get<1>(stream2Extr[1]),
+			//	&colorized);
+			
 			cudaMemcpy(depth_dev_input, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
 			colorize_deepMat(depth_dev_input,
 				imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols,
@@ -149,6 +148,16 @@ namespace unre
 			);
 			cv::Mat showDev2(imgs[0]->rows, imgs[0]->cols,CV_32FC1);
 			cudaMemcpy(showDev2.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+
+			createVMap<double>(depth_dev_output, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+			cv::Mat showDev3(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
+			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
+			computeNormalsEigen<float>(vmap, nmap, imgs[0]->rows, imgs[0]->cols);
+
+			
+			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
+			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float)*3, cudaMemcpyDeviceToHost);
+
 		}
 		
 		return 0;
