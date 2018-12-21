@@ -63,6 +63,18 @@ unsigned short* creatGpuData<unsigned short>(const int elemCnt, bool fore_zeros)
 	return (unsigned short*)gpudata;
 }
 template<>
+float2* creatGpuData<float2>(const int elemCnt, bool fore_zeros)
+{
+	void*gpudata = NULL;
+	cudaMalloc((void**)&gpudata, elemCnt * sizeof(float2));
+	if (fore_zeros)
+	{
+		cudaMemset(gpudata, 0, elemCnt * sizeof(float2));
+	}
+	cudaSafeCall(cudaGetLastError());
+	return (float2*)gpudata;
+}
+template<>
 float3* creatGpuData<float3>(const int elemCnt, bool fore_zeros)
 {
 	void*gpudata = NULL;

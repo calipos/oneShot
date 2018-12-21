@@ -2,12 +2,29 @@
 #include "unreGpu.h"
 
 
-int initOneDevDeep(short*&depth_input,float*&depth_output, float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols)
+int initOneDevDeep(
+	short*&depth_input, float*&depth_output,float*&depth_dev_med, 
+	float*&depth_filled, float2*&depth_2, float2*&depth_3,
+	float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols)
 {
 	depth_input = creatGpuData<short>(depthRows*depthCols);
 	depth_output = creatGpuData<float>(colorRows*colorCols);
+	depth_dev_med = creatGpuData<float>(colorRows*colorCols);
+	depth_filled = creatGpuData<float>(colorRows*colorCols);
+
+
+	int downsample_h2 = colorRows / 4;
+	int downsample_w2 = colorCols / 4;
+	depth_2 = creatGpuData<float2>(downsample_h2*downsample_w2);
+	int downsample_h3 = colorRows / 16;
+	int downsample_w3 = colorCols / 16;
+	depth_3 = creatGpuData<float2>(downsample_h3*downsample_w3);
+
+	
 	vmap = creatGpuData<float>(colorRows*colorCols * 3);
 	nmap = creatGpuData<float>(colorRows*colorCols * 3);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 	return 0;
 }
 
@@ -133,7 +150,7 @@ void colorize_deepMat(
 	dim3 grid_scale(divUp(depthCols, block_scale.x), divUp(depthRows, block_scale.y));
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
-
+	cudaMemset(depth_new, 0, sizeof(float)*colorRows * colorCols);
 	//scales depth along ray and converts mm -> meters. 
 	colorize_deepMat_kernel << <grid_scale, block_scale >> >(depth_old,
 		depthRows, depthCols, colorRows, colorCols,

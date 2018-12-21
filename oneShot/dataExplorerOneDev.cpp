@@ -90,9 +90,13 @@ namespace unre
 
 		short*depth_dev_input = NULL;
 		float*depth_dev_output = NULL;
+		float*depth_dev_med = NULL;//用来接受中值滤波的结果
+		float*depth_filled = NULL;//用来接受填充的结果
+		float2*depth_2 = NULL;//用来接受2阶下采样
+		float2*depth_3 = NULL;//用来接受3阶下采样
 		float*nmap = NULL;
 		float*vmap = NULL;
-		initOneDevDeep(depth_dev_input,depth_dev_output, vmap, nmap, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
+		initOneDevDeep(depth_dev_input,depth_dev_output, depth_dev_med, depth_filled, depth_2, depth_3,vmap, nmap, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
 
 		double4 intr_depth;//fx,fy,cx,cy
 		intr_depth.w = stream2Intr[1]->ptr<double>(0)[0];
@@ -138,6 +142,7 @@ namespace unre
 			//	&colorized);
 			
 			cudaMemcpy(depth_dev_input, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+			
 			colorize_deepMat(depth_dev_input,
 				imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols,
 				intr_depth,
@@ -146,10 +151,42 @@ namespace unre
 				R_color, t_color,
 				depth_dev_output
 			);
-			cv::Mat showDev2(imgs[0]->rows, imgs[0]->cols,CV_32FC1);
-			cudaMemcpy(showDev2.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::Mat showDevBeforeeMed(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			cudaMemcpy(showDevBeforeeMed.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
 
-			createVMap<double>(depth_dev_output, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+			int downsample_h2 = imgs[0]->rows / 4;
+			int downsample_w2 = imgs[0]->cols / 4;
+			int downsample_h3 = imgs[0]->rows / 16;
+			int downsample_w3 = imgs[0]->cols / 16;
+			medfilter33_forOneDev(depth_dev_output, imgs[0]->rows, imgs[0]->cols,
+				depth_dev_med, depth_filled,
+				depth_2, downsample_h2, downsample_w2,
+				depth_3, downsample_h3, downsample_w3);
+//#define SHOW_DOWNSAMPLE
+#ifdef SHOW_DOWNSAMPLE
+			float2*hostDownSample2 = new float2[imgs[0]->rows* imgs[0]->cols / 16];
+			cudaMemcpy((void*)hostDownSample2, (void*)depth_2, imgs[0]->rows*imgs[0]->cols * sizeof(float2) / 16, cudaMemcpyDeviceToHost);
+			cv::Mat hostDownSample2_cvmat = cv::Mat(imgs[0]->rows / 4, imgs[0]->cols / 4, CV_32FC1);
+			for (int i = 0; i < imgs[0]->rows / 4; i++)for (int j = 0; j < imgs[0]->cols / 4; j++)
+			{
+				hostDownSample2_cvmat.ptr<float>(i)[j] = hostDownSample2[i*imgs[0]->cols / 4 + j].x;
+			}
+
+			float2*hostDownSample3 = new float2[imgs[0]->rows/16* imgs[0]->cols / 16];	
+			cudaMemcpy((void*)hostDownSample3, (void*)depth_3, imgs[0]->rows / 16 * imgs[0]->cols / 16*sizeof(float2), cudaMemcpyDeviceToHost);
+			cv::Mat hostDownSample3_cvmat = cv::Mat(imgs[0]->rows / 16, imgs[0]->cols / 16, CV_32FC1);
+			LOG(INFO) << hostDownSample3_cvmat.isContinuous();
+			for (int i = 0; i < imgs[0]->rows / 16; i++)for (int j = 0; j < imgs[0]->cols / 16; j++)
+			{
+				hostDownSample3_cvmat.ptr<float>(i)[j] = hostDownSample3[i*imgs[0]->cols / 16 + j].x;
+			}
+#endif // SHOW_DOWNSAMPLE
+					
+
+			cv::Mat showDev2(imgs[0]->rows, imgs[0]->cols,CV_32FC1);
+			cudaMemcpy(showDev2.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+
+			createVMap<double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
 			cv::Mat showDev3(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
 			computeNormalsEigen<float>(vmap, nmap, imgs[0]->rows, imgs[0]->cols);

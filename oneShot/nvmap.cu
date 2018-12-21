@@ -402,8 +402,8 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 11,
-		ky = 11,
+		kx = 5,
+		ky = 5,
 		STEP = 1,
 	};
 };
@@ -475,6 +475,7 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 
 	float3 centroid = make_float3(0.f, 0.f, 0.f);
 	int counter = 0;
+	
 	for (int cy = max(v - NmapConfig<Dtype>::ky / 2, 0); cy < ty; cy += NmapConfig<Dtype>::STEP)
 		for (int cx = max(u - NmapConfig<Dtype>::kx / 2, 0); cx < tx; cx += NmapConfig<Dtype>::STEP)
 		{
@@ -517,7 +518,7 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 			cov[4] += d.y * d.z;               //cov (1, 2)
 			cov[5] += d.z * d.z;               //cov (2, 2)
 		}
-
+	
 	typedef Eigen33::Mat33 Mat33;
 	Eigen33 eigen33(cov);
 
@@ -531,6 +532,7 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 
 	u = threadIdx.x + blockIdx.x * blockDim.x;
 	v = threadIdx.y + blockIdx.y * blockDim.y;
+	
 	nmap[3*pos_] = n.x;
 	nmap[3*pos_ + 1] = n.y;
 	nmap[3*pos_ + 2] = n.z;

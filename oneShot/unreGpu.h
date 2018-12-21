@@ -204,7 +204,7 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
 
-int initOneDevDeep(short*&depth_input, float*&depth_output, float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols);
+int initOneDevDeep(short*&depth_input, float*&depth_output, float*&depth_dev_med, float*&depth_filled, float2*&depth_2, float2*&depth_3,float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols);
 
 #ifdef DOWNSAMPLE3TIMES
 void midfilter33AndFillHoles44_downsample3t(short*depth_dev1, int rows1, int cols1,
@@ -243,7 +243,11 @@ raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
 	Mat33 R_inv, float3 t_, float3 cameraPos_, float tranc_dist);
 
-
+void medfilter33_forOneDev(
+	float*depth_dev1, int rows1, int cols1,
+	float*depth_dev1_midfiltered, float*depth_dev1_filled,
+	float2*depth_dev2, int rows2, int cols2,
+	float2*depth_dev3, int rows3, int cols3);
 void colorize_deepMat(
 	const short* depth_old, 
 	int depthRows, int depthCols, int colorRows, int colorCols,

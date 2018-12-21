@@ -28,7 +28,7 @@ int main()
 	TEST_oneDev();
 	//TEST_calib();
 	//TEST_generate_testDepthMat();
-	TEST_tsdf();
+	//TEST_tsdf();
 	//TEST_dataExplorer_destroy();
 	//TEST_dataExplorer();
 	//TEST_calib();
