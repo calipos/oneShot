@@ -57,9 +57,6 @@
     <ClInclude Include="sensor.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="realSense.h">
-      <Filter>头文件\cameraLibs</Filter>
-    </ClInclude>
     <ClInclude Include="camera.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -98,6 +95,9 @@
     </ClInclude>
     <ClInclude Include="opencvAssistant.h">
       <Filter>头文件\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="realSense_post.h">
+      <Filter>头文件\cameraLibs</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -167,6 +167,9 @@
     <ClCompile Include="TEST_inverse.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="realsense-post-proc.cpp">
+      <Filter>头文件\cameraLibs</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="filters.cu">
@@ -182,6 +185,9 @@
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
     <CudaCompile Include="colorize_deepMat.cu">
+      <Filter>源文件\cuda</Filter>
+    </CudaCompile>
+    <CudaCompile Include="combineNmap2Rgb.cu">
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
   </ItemGroup>

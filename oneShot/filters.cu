@@ -2,6 +2,29 @@
 #include "filters.h"
 
 
+
+template<> struct numeric_limits<float>
+{
+	__device__ __forceinline__ static float
+		quiet_NaN() { return __int_as_float(0x7fffffff); /*CUDART_NAN_F*/ };
+	__device__ __forceinline__ static float
+		epsilon() { return 1.192092896e-07f/*FLT_EPSILON*/; };
+
+	__device__ __forceinline__ static float
+		min() { return 1.175494351e-38f/*FLT_MIN*/; };
+	__device__ __forceinline__ static float
+		max() { return 3.402823466e+38f/*FLT_MAX*/; };
+
+	__device__ __forceinline__ static bool
+		isnan(float value) { return __int_as_float(0x7fffffff) == value; };
+};
+
+template<> struct numeric_limits<short>
+{
+	__device__ __forceinline__ static short
+		max() { return SHRT_MAX; };
+};
+
 //暂时没有去除飞点，考虑了一下不合适
 
 template<typename Dtype>
@@ -16,6 +39,11 @@ __global__ void medianFilter3AndDiscardNoisyKernel(Dtype * input, Dtype * output
 
 	if (x >= DATA_W && y >= DATA_H)
 		return;
+	if (input[y*DATA_W + x]>0.001)
+	{
+		output[y*DATA_W + x] = input[y*DATA_W + x];
+		return;
+	}
 
 	window[tid][0] = (y == 0 || x == 0) ? 0.0f : input[(y - 1)*DATA_W + x - 1];
 	window[tid][1] = (y == 0) ? 0.0f : input[(y - 1)*DATA_W + x];
@@ -115,6 +143,62 @@ __global__ void medianFilter5AndDiscardNoisyKernel(Dtype * input, Dtype * output
 	}
 	else
 		output[y*DATA_W + x] = window[12];
+};
+
+
+template<typename Dtype>
+__global__ void averageFilter5(Dtype * input, Dtype * output, unsigned int DATA_W, unsigned int DATA_H)
+{
+	float window[25];
+
+	unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+	unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= DATA_W && y >= DATA_H)
+		return;
+
+	window[0] = (y == 0 || y == 1 || x == 0 || x == 1) ? 0.0f : input[(y - 2)*DATA_W + x - 2];
+	window[1] = (y == 0 || y == 1 || x == 0) ? 0.0f : input[(y - 2)*DATA_W + x - 1];
+	window[2] = (y == 0 || y == 1) ? 0.0f : input[(y - 2)*DATA_W + x];
+	window[3] = (y == 0 || y == 1 || x == DATA_W - 1) ? 0.0f : input[(y - 2)*DATA_W + x + 1];
+	window[4] = (y == 0 || y == 1 || x == DATA_W - 1 || x == DATA_W - 2) ? 0.0f : input[(y - 2)*DATA_W + x + 2];
+
+	window[5] = (y == 0 || x == 0 || x == 1) ? 0.0f : input[(y - 1)*DATA_W + x - 2];
+	window[6] = (y == 0 || x == 0) ? 0.0f : input[(y - 1)*DATA_W + x - 1];
+	window[7] = (y == 0) ? 0.0f : input[(y - 1)*DATA_W + x];
+	window[8] = (y == 0 || x == DATA_W - 1) ? 0.0f : input[(y - 1)*DATA_W + x + 1];
+	window[9] = (y == 0 || x == DATA_W - 1 || x == DATA_W - 2) ? 0.0f : input[(y - 1)*DATA_W + x + 2];
+
+	window[10] = (x == 0 || x == 1) ? 0.0f : input[y*DATA_W + x - 2];
+	window[11] = (x == 0) ? 0.0f : input[y*DATA_W + x - 1];
+	window[12] = input[y*DATA_W + x];
+	window[13] = (x == DATA_W - 1) ? 0.0f : input[y*DATA_W + x + 1];
+	window[14] = (x == DATA_W - 1 || x == DATA_W - 2) ? 0.0f : input[y*DATA_W + x + 2];
+
+	window[15] = (y == DATA_H - 1 || x == 0 || x == 1) ? 0.0f : input[(y + 1)*DATA_W + x - 2];
+	window[16] = (y == DATA_H - 1 || x == 0) ? 0.0f : input[(y + 1)*DATA_W + x - 1];
+	window[17] = (y == DATA_H - 1) ? 0.0f : input[(y + 1)*DATA_W + x];
+	window[18] = (y == DATA_H - 1 || x == DATA_W - 1) ? 0.0f : input[(y + 1)*DATA_W + x + 1];
+	window[19] = (y == DATA_H - 1 || x == DATA_W - 1 || x == DATA_W - 2) ? 0.0f : input[(y + 1)*DATA_W + x + 2];
+
+	window[20] = (y == DATA_H - 2 || y == DATA_H - 1 || x == 0 || x == 1) ? 0.0f : input[(y + 2)*DATA_W + x - 2];
+	window[21] = (y == DATA_H - 2 || y == DATA_H - 1 || x == 0) ? 0.0f : input[(y + 2)*DATA_W + x - 1];
+	window[22] = (y == DATA_H - 2 || y == DATA_H - 1) ? 0.0f : input[(y + 2)*DATA_W + x];
+	window[23] = (y == DATA_H - 2 || y == DATA_H - 1 || x == DATA_W - 1) ? 0.0f : input[(y + 2)*DATA_W + x + 1];
+	window[24] = (y == DATA_H - 2 || y == DATA_H - 1 || x == DATA_W - 1 || x == DATA_W - 2) ? 0.0f : input[(y + 2)*DATA_W + x + 2];
+
+	float sum = 0.;
+	for (unsigned int j = 0; j<25; ++j)
+	{
+		sum += window[j];
+	}
+	sum /= 25;
+	if (((x < 2) && (y < 2)) || ((x > DATA_W - 2) && (y < 2)) || ((x < 2) && (y > DATA_H - 2)) || ((x > DATA_W - 2) && (y > DATA_H - 2)))
+	{
+		output[y*DATA_W + x] = input[y*DATA_W + x];
+	}
+	else
+		output[y*DATA_W + x] = sum;
 };
 
 
@@ -274,6 +358,13 @@ __global__ void fillKernel(
 	{
 		return;
 	}
+	//******
+	else
+	{
+		fill_dev[cols1*y + x] = numeric_limits<float>::quiet_NaN();;
+		return;
+	}
+	//******
 	int stage3_x = x / 16;
 	int stage3_y = y / 16;
 	if (stage3_x >= cols3 || stage3_y >= rows3)
@@ -306,12 +397,12 @@ __global__ void fillKernel(
 		}
 		else
 		{
-			fill_dev[cols1*y + x] = 0.;
+			fill_dev[cols1*y + x] = numeric_limits<float>::quiet_NaN();;
 		}
 	}	
 	else
 	{
-		fill_dev[cols1*y + x] = 0.;
+		fill_dev[cols1*y + x] = numeric_limits<float>::quiet_NaN();;
 	}
 }
 
@@ -425,6 +516,8 @@ void  midfilter33AndFillHoles44_downsample2t(short*depth_dev1, int rows1, int co
 #endif
 
 
+
+
 void medfilter33_forOneDev(
 	float*depth_dev1, int rows1, int cols1, 
 	float*depth_dev1_midfiltered, float*depth_dev1_filled,
@@ -451,20 +544,18 @@ void medfilter33_forOneDev(
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 
-	int rows_lmt2 = rows1 / 16;
-	int cols_lmt2 = cols1 / 16;
-	dim3 block_downSample2(32, 24);
-	dim3 grid_downSample2(divUp(cols_lmt2, block_downSample2.x), divUp(rows_lmt2, block_downSample2.y));
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
-
-	
-	downSample44_2_Kernel<float, float2> << < grid_downSample2, block_downSample2 >> >
-		(depth_dev2, rows2, cols2,
-		rows_lmt2, cols_lmt2,
-		depth_dev3, rows3, cols3);
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
+	//int rows_lmt2 = rows1 / 16;
+	//int cols_lmt2 = cols1 / 16;
+	//dim3 block_downSample2(32, 24);
+	//dim3 grid_downSample2(divUp(cols_lmt2, block_downSample2.x), divUp(rows_lmt2, block_downSample2.y));
+	//cudaSafeCall(cudaGetLastError());
+	//cudaSafeCall(cudaDeviceSynchronize());	
+	//downSample44_2_Kernel<float, float2> << < grid_downSample2, block_downSample2 >> >
+	//	(depth_dev2, rows2, cols2,
+	//	rows_lmt2, cols_lmt2,
+	//	depth_dev3, rows3, cols3);
+	//cudaSafeCall(cudaGetLastError());
+	//cudaSafeCall(cudaDeviceSynchronize());
 
 	int rows_global = rows1;
 	int cols_global = cols1;
@@ -481,5 +572,12 @@ void medfilter33_forOneDev(
 	cudaSafeCall(cudaDeviceSynchronize());
 
 
+	//averageFilter5 << <grid_global, block_global >> >(
+	//	depth_dev1_filled,
+	//	depth_dev1,
+	//	cols1, rows1);
+	//cudaSafeCall(cudaGetLastError());
+	//cudaSafeCall(cudaDeviceSynchronize());
 	return;
 }
+

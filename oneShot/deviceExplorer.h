@@ -13,6 +13,10 @@
 #ifdef USE_REALSENSE
 #include "librealsense2/rs.h"
 #include <librealsense2/rs_advanced_mode.hpp>
+#define REALSENSE_POST_FILTER
+#ifdef	REALSENSE_POST_FILTER
+#include "realSense_post.h"
+#endif
 //#pragma comment(lib,"realsense2.lib")   = = 不起作用
 #endif // USE_REALSENSE
 
@@ -64,6 +68,16 @@ namespace unre
 		bool doCalib_{ false };
 #ifdef USE_REALSENSE
 	public:
+#ifdef	REALSENSE_POST_FILTER
+		
+		rs2::disparity_transform depth_to_disparity{true};
+		rs2::disparity_transform disparity_to_depth{false};
+		const std::string disparity_filter_name = "Disparity";
+		// Initialize a vector that holds filters and their options
+		std::vector<filter_options> filters;
+		// Declaring two concurrent queues that will be used to push and pop frames from different threads
+		rs2::frame_queue filtered_data;
+#endif
 		void remove_rs_devices(const rs2::event_information& info);
 		void init_rs_devices(const std::vector<std::string>& serial_numbers,
 			const std::vector<std::tuple<std::string, oneDevMap	> >& sensorInfo,
@@ -100,11 +114,41 @@ namespace unre
 						}
 					}
 					rs2::frameset depth_and_color_frameset = p.wait_for_frames();
-					//auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
+					//auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();					
+#ifdef	REALSENSE_POST_FILTER
+					rs2::frame depth_frame = depth_and_color_frameset.get_depth_frame(); //Take the depth frame from the frameset
+					rs2::frame filtered = depth_frame; 
+					bool revert_disparity = false;
+					for (auto&& filter : filters)
+					{
+						filtered = filter.filter.process(filtered);
+						if (filter.filter_name == disparity_filter_name)
+						{
+							revert_disparity = true;
+						}						
+					}
+					if (revert_disparity)
+					{
+						filtered = disparity_to_depth.process(filtered);
+					}
+
+					filtered_data.enqueue(filtered);
+					rs2::frame f__;
+					if (filtered_data.poll_for_frame(&f__))  // Try to take the depth and points from the queue
+					{
+						auto df_pt = (unsigned short*)f__.get_data();
+						auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+						buffer1->push(df_pt);
+						buffer2->push(if_pt);
+					}
+
+#else
 					auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
 					auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
 					buffer1->push(df_pt);
-					buffer2->push(if_pt);
+					buffer2->push(if_pt);					
+#endif
+					
 				}
 				if (current->doTerminate)
 				{
@@ -137,14 +181,64 @@ namespace unre
 							break;
 						}
 					}
-					rs2::frameset depth_and_color_frameset = p.wait_for_frames();
-					auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
-					auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
-					auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+					rs2::frameset depth_and_color_frameset = p.wait_for_frames();					
+#ifdef	REALSENSE_POST_FILTER
+					rs2::frame depth_frame = depth_and_color_frameset.get_depth_frame(); //Take the depth frame from the frameset
+					rs2::frame filtered = depth_frame;
+					bool revert_disparity = false;
+					for (auto&& filter : filters)
+					{
+						
+						filtered = filter.filter.process(filtered);
+						if (filter.filter_name == disparity_filter_name)
+						{
+							revert_disparity = true;
+						}
+						
+					}
+					if (revert_disparity)
+					{
+						filtered = disparity_to_depth.process(filtered);
+					}
 
+					cv::Mat show___ = cv::Mat(720, 1280, CV_16SC1);
+					filtered_data.enqueue(filtered);
+					rs2::frame f__;
+					if (filtered_data.poll_for_frame(&f__))  // Try to take the depth and points from the queue
+					{
+						memcpy(show___.data, depth_frame.get_data(), 1280 * 720 * sizeof(unsigned short));
+						//cv::imshow("123", show___);
+						//cv::waitKey(12);
+						//continue;
+						auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
+						auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+						buffer0->push(cf_pt);
+						buffer1->push((unsigned short*)show___.data);
+						buffer2->push(if_pt);
+					}
+
+
+					//filtered_data.enqueue(filtered);
+					//rs2::frame f__;
+					//if (filtered_data.poll_for_frame(&f__))  // Try to take the depth and points from the queue
+					//{
+					//	auto df_pt = (unsigned short*)f__.get_data();
+					//	auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
+					//	auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
+					//	buffer0->push(cf_pt);
+					//	buffer1->push(df_pt);
+					//	buffer2->push(if_pt);
+					//}					
+#else
+					auto df_pt = (unsigned short*)depth_and_color_frameset.get_depth_frame().get_data();
+					auto cf_pt = (unsigned char*)depth_and_color_frameset.first(RS2_STREAM_COLOR).get_data();
+					auto if_pt = (unsigned char*)depth_and_color_frameset.get_infrared_frame().get_data();
 					buffer0->push(cf_pt);
 					buffer1->push(df_pt);
 					buffer2->push(if_pt);
+
+#endif
+					
 				}
 				if (current->doTerminate)
 				{

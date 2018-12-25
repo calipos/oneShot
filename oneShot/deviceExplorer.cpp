@@ -18,6 +18,11 @@
 #include <librealsense2/rs_advanced_mode.hpp>
 //#pragma comment(lib,"realsense2.lib")    = = 不起作用
 #endif // USE_REALSENSE
+#ifdef	REALSENSE_POST_FILTER
+static rs2::decimation_filter dec_filter(5 );  // Decimation - reduces depth frame density
+static rs2::spatial_filter spat_filter( 0.5,20.,2,1. );    // Spatial    - edge-preserving spatial smoothing
+static rs2::temporal_filter temp_filter( 0.5,20.,1. );   // Temporal   - reduces temporal noise
+#endif // REALSENSE_POST_FILTER 
 namespace unre
 {
 	
@@ -255,29 +260,29 @@ namespace unre
 					CHECK(false) << "Current device doesn't support advanced-mode!\n";
 				}
 				std::vector<rs2::sensor> sensors = dev.query_sensors();
-				auto color_sensor = sensors[1]; //1 color sensor 0 depth 
-				if (color_sensor.supports(RS2_OPTION_EXPOSURE))
-				{
-					color_sensor.set_option(RS2_OPTION_EXPOSURE, 1250);
-				}
-				if (color_sensor.supports(RS2_OPTION_WHITE_BALANCE))
-				{
-					color_sensor.set_option(RS2_OPTION_WHITE_BALANCE, 4600);
-				}
+				//auto color_sensor = sensors[1]; //1 color sensor 0 depth 
+				//if (color_sensor.supports(RS2_OPTION_EXPOSURE))
+				//{
+				//	color_sensor.set_option(RS2_OPTION_EXPOSURE, 1250);
+				//}
+				//if (color_sensor.supports(RS2_OPTION_WHITE_BALANCE))
+				//{
+				//	color_sensor.set_option(RS2_OPTION_WHITE_BALANCE, 4600);
+				//}
 				auto depth_sensor = sensors[0];
-				if (depth_sensor.supports(RS2_OPTION_LASER_POWER))
-				{
-					auto range = depth_sensor.get_option_range(RS2_OPTION_LASER_POWER);
-				}
+				//if (depth_sensor.supports(RS2_OPTION_LASER_POWER))
+				//{
+				//	auto range = depth_sensor.get_option_range(RS2_OPTION_LASER_POWER);
+				//}
 				//auto depth_sensor = sensors[0];
 				if (depth_sensor.supports(RS2_OPTION_VISUAL_PRESET))
 				{
 					depth_sensor.set_option(RS2_OPTION_VISUAL_PRESET, RS2_RS400_VISUAL_PRESET_HIGH_ACCURACY); // Set max power
 				}
-				if (depth_sensor.supports(RS2_OPTION_FRAMES_QUEUE_SIZE))
-				{
-					depth_sensor.set_option(RS2_OPTION_FRAMES_QUEUE_SIZE, 0);
-				}
+				//if (depth_sensor.supports(RS2_OPTION_FRAMES_QUEUE_SIZE))
+				//{
+				//	depth_sensor.set_option(RS2_OPTION_FRAMES_QUEUE_SIZE, 0);
+				//}
 
 				std::string key_ = "realsenseD415," + serial_number;
 
@@ -329,7 +334,7 @@ namespace unre
 				rs2::config c;
 				rs2::pipeline_profile profile;
 				c.enable_device(serial_number);
-				c.enable_stream(RS2_STREAM_COLOR, rgb_w, rgb_h, RS2_FORMAT_RGB8, 30);
+				c.enable_stream(RS2_STREAM_COLOR, rgb_w, rgb_h, RS2_FORMAT_BGR8, 30);
 				//c.enable_stream(RS2_STREAM_COLOR, 1280, 720, RS2_FORMAT_RGB8, 30);
 				c.enable_stream(RS2_STREAM_DEPTH, dep_w, dep_h, RS2_FORMAT_Z16, 30);
 				c.enable_stream(RS2_STREAM_INFRARED, 1, inf_w, inf_h, RS2_FORMAT_Y8, 30);
@@ -357,6 +362,23 @@ namespace unre
 	}
 	void DeviceExplorer::runRS()
 	{
+#ifdef	REALSENSE_POST_FILTER
+		
+		// Declare filters
+		//rs2::decimation_filter dec_filter{ 2 };  // Decimation - reduces depth frame density
+		//rs2::spatial_filter spat_filter{ 0.5,20.,2,1. };    // Spatial    - edge-preserving spatial smoothing
+		//rs2::temporal_filter temp_filter{ 0.5,20.,1. };   // Temporal   - reduces temporal noise
+														  // Declare disparity transform from depth to disparity and vice versa
+		filters.emplace_back("Decimate", dec_filter);
+		filters.emplace_back(disparity_filter_name, depth_to_disparity);
+		filters.emplace_back("Spatial", spat_filter);
+		filters.emplace_back("Temporal", temp_filter);
+
+		//filters.emplace_back("Decimate", rs2::decimation_filter(2));
+		//filters.emplace_back(disparity_filter_name, depth_to_disparity);
+		//filters.emplace_back("Spatial", rs2::spatial_filter(0.5, 20., 2, 1.));
+		//filters.emplace_back("Temporal", rs2::temporal_filter(0.5, 20., 1.));
+#endif
 		runTime_intr.clear();
 		//一下得到运行时的内参
 		for (auto& dev_info : rsMap)

@@ -4,7 +4,8 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-
+#define BLOCK_WIDTH_MEANBLUR		32
+#define BLOCK_HEIGHT_MEANBLUR	32
 
 const unsigned int BLOCK_W_FILTER = 8;
 const unsigned int BLOCK_H_FILTER = 8;
@@ -118,6 +119,76 @@ __global__ void CudaMedianFilter5(Dtype * input, Dtype * output, unsigned int DA
 		output[y*DATA_W + x] = window[12];
 };
 
+template<unsigned short RADIUS >
+__global__ void kRadialBlur(unsigned char* img, unsigned width, unsigned height, size_t pitch)
+{
+	__shared__ unsigned char sh[BLOCK_HEIGHT_MEANBLUR + 2 * RADIUS][BLOCK_WIDTH_MEANBLUR + 2 * RADIUS];
+
+	int g_x = blockDim.x*blockIdx.x + threadIdx.x;
+	int g_y = blockDim.y*blockIdx.y + threadIdx.y;
+
+	int pid_x = threadIdx.x + RADIUS;
+	int pid_y = threadIdx.y + RADIUS;
+
+	
+	sh[pid_y][pid_x] = img[g_y*pitch + g_x];
+
+
+	if ((threadIdx.x < RADIUS) && (g_x >= RADIUS))
+	{
+		sh[pid_y][pid_x - RADIUS] = img[g_y*pitch + g_x - RADIUS];
+
+		if ((threadIdx.y < RADIUS) && (g_y >= RADIUS))
+		{
+			sh[pid_y - RADIUS][pid_x - RADIUS] = img[(g_y - RADIUS)*pitch + g_x - RADIUS];
+		}
+		if ((threadIdx.y >(BLOCK_HEIGHT - 1 - RADIUS)))
+		{
+			sh[pid_y + RADIUS][pid_x - RADIUS] = img[(g_y + RADIUS)*pitch + g_x - RADIUS];
+		}
+	}
+	if ((threadIdx.x > (BLOCK_WIDTH - 1 - RADIUS)) && (g_x < (width - RADIUS)))
+	{
+		sh[pid_y][pid_x + RADIUS] = img[g_y*pitch + g_x + RADIUS];
+
+		if ((threadIdx.y < RADIUS) && (g_y > RADIUS))
+		{
+			sh[pid_y - RADIUS][pid_x + RADIUS] = img[(g_y - RADIUS)*pitch + g_x + RADIUS];
+		}
+		if ((threadIdx.y >(BLOCK_HEIGHT - 1 - RADIUS)) && (g_y < (height - RADIUS)))
+		{
+			sh[pid_y + RADIUS][pid_x + RADIUS] = img[(g_y + RADIUS)*pitch + g_x + RADIUS];
+		}
+	}
+
+	if ((threadIdx.y < RADIUS) && (g_y >= RADIUS))
+	{
+		sh[pid_y - RADIUS][pid_x] = img[(g_y - RADIUS)*pitch + g_x];
+	}
+	if ((threadIdx.y >(BLOCK_HEIGHT - 1 - RADIUS)) && (g_y < (height - RADIUS)))
+	{
+		sh[pid_y + RADIUS][pid_x] = img[(g_y + RADIUS)*pitch + g_x];
+	}
+
+	__syncthreads();
+	unsigned val = 0;
+	unsigned k = 0;
+	for (int i = -RADIUS; i <= RADIUS; i++)
+		for (int j = -RADIUS; j <= RADIUS; j++)
+		{
+			if (((g_x + j) < 0) || ((g_x + j) > (width - 1)))
+				continue;
+			if (((g_y + i) < 0) || ((g_y + i) > (height - 1)))
+				continue;
+			val += sh[pid_y + i][pid_x + j];
+			k++;
+		}
+	val /= k;
+	img[g_y*pitch + g_x] = (unsigned char)val;
+
+}
+
+
 template<typename Dtype>
 void CudaMedianFilter(Dtype ** pImage, int imageWidth, int imageHeight, int kernelSize)
 {
@@ -145,6 +216,16 @@ void CudaMedianFilter(Dtype ** pImage, int imageWidth, int imageHeight, int kern
 	cudaFree(pTmpImage);
 }
 
+
+{
+	dim3 dGrid(width / BLOCK_WIDTH_MEANBLUR, height / BLOCK_HEIGHT_MEANBLUR);
+	dim3 dBlock(BLOCK_WIDTH, BLOCK_HEIGHT);
+
+	// execution of the version using global memory
+	cudaEventRecord(startEvent);
+	kRadialBlur<4> << < dGrid, dBlock >> > (d_img, width, height, pitch);
+	cudaThreadSynchronize();
+}
 
 
 #endif // !_FILTERS_H_

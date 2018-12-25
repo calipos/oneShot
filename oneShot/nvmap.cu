@@ -1,5 +1,5 @@
 #include"unreGpu.h"
-
+#include"filters.h"
 
 template <class T>
 __device__ __host__ __forceinline__ void swap(T& a, T& b)
@@ -402,8 +402,8 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 5,
-		ky = 5,
+		kx = 15,
+		ky = 15,
 		STEP = 1,
 	};
 };
@@ -480,7 +480,7 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 		for (int cx = max(u - NmapConfig<Dtype>::kx / 2, 0); cx < tx; cx += NmapConfig<Dtype>::STEP)
 		{
 			int pos_2 = cols*cy + cx;
-			float v_x = vmap[pos_2];
+			float v_x = vmap[3*pos_2];
 			if (!isnan(v_x))
 			{
 				centroid.x += v_x;
@@ -535,16 +535,18 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 	
 	nmap[3*pos_] = n.x;
 	nmap[3*pos_ + 1] = n.y;
-	nmap[3*pos_ + 2] = n.z;
+	float nz = n.z > 0 ? n.z : -n.z;
+	nmap[3 * pos_ + 2] = nz;	
 }
 
 template<>//计算vmap，vmap必须提前申请空间，其中vmap和namp的高是depthImage高的3倍：CHW的关系
-int computeNormalsEigen<float>(const float*vmap, float*nmap, int rows, int cols)
+int computeNormalsEigen<float>(const float*vmap, float*nmap, float*nmap_average, int rows, int cols)
 {
 	dim3 block(32, 8);
 	dim3 grid(1, 1, 1);
 	grid.x = divUp(cols, block.x);
 	grid.y = divUp(rows, block.y);
+	cudaMemset(nmap, 0, 3* rows* cols * sizeof(float));
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);

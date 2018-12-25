@@ -95,8 +95,11 @@ namespace unre
 		float2*depth_2 = NULL;//用来接受2阶下采样
 		float2*depth_3 = NULL;//用来接受3阶下采样
 		float*nmap = NULL;
+		float*nmap_average = NULL;
 		float*vmap = NULL;
-		initOneDevDeep(depth_dev_input,depth_dev_output, depth_dev_med, depth_filled, depth_2, depth_3,vmap, nmap, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
+		unsigned char*rgbData = NULL;
+		unsigned char*newRgbData = NULL;
+		initOneDevDeep(depth_dev_input,depth_dev_output, depth_dev_med, depth_filled, depth_2, depth_3,vmap, nmap, nmap_average,rgbData, newRgbData, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
 
 		double4 intr_depth;//fx,fy,cx,cy
 		intr_depth.w = stream2Intr[1]->ptr<double>(0)[0];
@@ -130,12 +133,15 @@ namespace unre
 			//pop2Mats_noInfred(imgs);
 			pop2Mats(imgs);
 			
-			cv::Mat showDev0(imgs[0]->rows, imgs[0]->cols, CV_8UC3);
-			memcpy(showDev0.data, imgs[0]->data, imgs[0]->rows*imgs[0]->cols * sizeof(char)*3);
+			//cv::Mat showDev0(imgs[0]->rows, imgs[0]->cols, CV_8UC3);
+			//memcpy(showDev0.data, imgs[0]->data, imgs[0]->rows*imgs[0]->cols * sizeof(char)*3);
 
-			cv::Mat showDev1(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
-			memcpy(showDev1.data, imgs[1]->data, imgs[1]->rows*imgs[1]->cols*sizeof(short));
-			
+			cv::Mat showDep(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
+			memcpy(showDep.data, imgs[1]->data, imgs[1]->rows*imgs[1]->cols*sizeof(short));
+			//cv::imshow("123", showDep);
+			//cv::waitKey(10);
+			//continue;
+
 			//cv::Mat colorized;
 			//transProc(imgs[0], stream2Intr[0], &std::get<0>(stream2Extr[0]), &std::get<1>(stream2Extr[0]),
 			//	imgs[1], stream2Intr[1], &std::get<0>(stream2Extr[1]), &std::get<1>(stream2Extr[1]),
@@ -180,20 +186,52 @@ namespace unre
 			{
 				hostDownSample3_cvmat.ptr<float>(i)[j] = hostDownSample3[i*imgs[0]->cols / 16 + j].x;
 			}
-#endif // SHOW_DOWNSAMPLE
-					
-
-			cv::Mat showDev2(imgs[0]->rows, imgs[0]->cols,CV_32FC1);
-			cudaMemcpy(showDev2.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
-
+#endif // SHOW_DOWNSAMPLE			
+//#define SHOW_FILLRESULT
+#ifdef SHOW_FILLRESULT
+			cv::Mat showDev0(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			cudaMemcpy(showDev0.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::imshow("123", showDev0);
+			cv::waitKey(10);
+			continue;
+			cv::Mat showDev1(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			cudaMemcpy(showDev1.data, depth_dev_med, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::imshow("123", showDev1);
+			cv::waitKey(10);
+			continue;
+			cv::Mat showDev2(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			cudaMemcpy(showDev2.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::imshow("123", showDev2);
+			cv::waitKey(10);
+			continue;
+#endif // SHOW_FILLRESULT
 			createVMap<double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+//#define SHOW_VMAP
+#ifdef SHOW_VMAP
 			cv::Mat showDev3(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-			computeNormalsEigen<float>(vmap, nmap, imgs[0]->rows, imgs[0]->cols);
-
-			
+			cv::imshow("123", showDev3);
+			cv::waitKey(10);
+			continue;
+#endif // SHOW_VMAP
+			computeNormalsEigen<float>(vmap, nmap, nmap_average, imgs[0]->rows, imgs[0]->cols);
+#define SHOW_NMAP
+#ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
-			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float)*3, cudaMemcpyDeviceToHost);
+			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
+			cv::imshow("123", showDev4);
+			cv::waitKey(10);
+			continue;
+#endif // SHOW_NMAP
+
+			cudaMemcpy(rgbData, imgs[0]->data, imgs[0]->rows * imgs[0]->cols * 3, cudaMemcpyHostToDevice);
+			combineNmap2Rgb(rgbData, nmap,newRgbData, imgs[0]->rows, imgs[0]->cols);
+
+
+			cv::Mat vis = cv::Mat(imgs[0]->rows, imgs[0]->cols,CV_8UC3);
+			cudaMemcpy(vis.data, newRgbData, imgs[0]->rows*imgs[0]->cols * 3, cudaMemcpyDeviceToHost);
+			cv::imshow("123", vis);
+			cv::waitKey(10);
 
 		}
 		

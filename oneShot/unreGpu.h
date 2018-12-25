@@ -204,7 +204,12 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
 
-int initOneDevDeep(short*&depth_input, float*&depth_output, float*&depth_dev_med, float*&depth_filled, float2*&depth_2, float2*&depth_3,float*&vmap, float*&nmap, int depthRows, int depthCols, int colorRows, int colorCols);
+int initOneDevDeep(short*&depth_input, float*&depth_output, 
+	float*&depth_dev_med, float*&depth_filled, 
+	float2*&depth_2, float2*&depth_3,
+	float*&vmap, float*&nmap, float*&nmap_average,
+	unsigned char*&rgbData, unsigned char*&newRgbData,
+	int depthRows, int depthCols, int colorRows, int colorCols);
 
 #ifdef DOWNSAMPLE3TIMES
 void midfilter33AndFillHoles44_downsample3t(short*depth_dev1, int rows1, int cols1,
@@ -225,7 +230,7 @@ int createVMap(const float*dataIn, float*dataOut, const T fx, const T fy, const 
 
 
 template<typename T>
-int computeNormalsEigen(const T*vmap, T*nmap, int rows, int cols);
+int computeNormalsEigen(const T*vmap, T*nmap, T*nmap_average, int rows, int cols);
 
 template<typename T>
 int tranformMaps(const T* vmap_src, const T* nmap_src, const T*Rmat_, const T*tvec_, T* vmap_dst, T* nmap_dst, const int& rows, const int& cols);
@@ -257,5 +262,10 @@ void colorize_deepMat(
 	Mat33d color_R, double3 color_t,
 	float* depth_new
 );
+
+void combineNmap2Rgb(
+	unsigned char*rgb, float*nmap,
+	unsigned char*rgbOut,
+	int colorRows, int colorCols);
 
 #endif

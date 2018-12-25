@@ -86,6 +86,18 @@ float3* creatGpuData<float3>(const int elemCnt, bool fore_zeros)
 	cudaSafeCall(cudaGetLastError());
 	return (float3*)gpudata;
 }
+template<>
+unsigned char* creatGpuData<unsigned char>(const int elemCnt, bool fore_zeros)
+{
+	void*gpudata = NULL;
+	cudaMalloc((void**)&gpudata, elemCnt * sizeof(unsigned char));
+	if (fore_zeros)
+	{
+		cudaMemset(gpudata, 0, elemCnt * sizeof(unsigned char));
+	}
+	cudaSafeCall(cudaGetLastError());
+	return (unsigned char*)gpudata;
+}
 
 
 __device__ __forceinline__ void

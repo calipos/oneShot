@@ -174,7 +174,7 @@
     <ClInclude Include="jsonExplorer.h" />
     <ClInclude Include="logg.h" />
     <ClInclude Include="opencvAssistant.h" />
-    <ClInclude Include="realSense.h" />
+    <ClInclude Include="realSense_post.h" />
     <ClInclude Include="ringBuffer.h" />
     <ClInclude Include="sensor.h" />
     <ClInclude Include="stringOp.h" />
@@ -188,6 +188,7 @@
     <ClCompile Include="JsonExplorer.cpp" />
     <ClCompile Include="logg.cpp" />
     <ClCompile Include="opencvAssistant.cpp" />
+    <ClCompile Include="realsense-post-proc.cpp" />
     <ClCompile Include="TEST_buffer_thread.cpp" />
     <ClCompile Include="dataExplorer.cpp" />
     <ClCompile Include="iofile.cpp" />
@@ -207,6 +208,7 @@
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="colorize_deepMat.cu" />
+    <CudaCompile Include="combineNmap2Rgb.cu" />
     <CudaCompile Include="filters.cu" />
     <CudaCompile Include="nvmap.cu" />
     <CudaCompile Include="raycaster.cu" />
