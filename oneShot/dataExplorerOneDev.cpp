@@ -215,7 +215,7 @@ namespace unre
 			continue;
 #endif // SHOW_VMAP
 			computeNormalsEigen<float>(vmap, nmap, nmap_average, imgs[0]->rows, imgs[0]->cols);
-#define SHOW_NMAP
+//#define SHOW_NMAP
 #ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);

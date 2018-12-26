@@ -402,8 +402,8 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 15,
-		ky = 15,
+		kx = 31,
+		ky = 31,
 		STEP = 1,
 	};
 };
@@ -533,10 +533,17 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 	u = threadIdx.x + blockIdx.x * blockDim.x;
 	v = threadIdx.y + blockIdx.y * blockDim.y;
 	
-	nmap[3*pos_] = n.x;
-	nmap[3*pos_ + 1] = n.y;
-	float nz = n.z > 0 ? n.z : -n.z;
-	nmap[3 * pos_ + 2] = nz;	
+	nmap[3*pos_] = vmap[3 * pos_]>0?n.x:-n.x;
+	nmap[3*pos_ + 1] = vmap[3 * pos_+1]>0 ? n.y : -n.y;
+	float nz2 = n.z > 0 ? n.z : -n.z;
+
+
+	//float nx2 = static_cast<int>(n.x * 20 + 0.5)*0.05;
+	//float ny2 = static_cast<int>(n.y * 20 + 0.5)*0.05;	
+	//float nz2 = static_cast<int>(nz * 20 + 0.5)*0.05;
+	//nmap[3 * pos_] = nx2;
+	//nmap[3 * pos_ + 1] = ny2;
+	nmap[3 * pos_ + 2] = nz2;
 }
 
 template<>//计算vmap，vmap必须提前申请空间，其中vmap和namp的高是depthImage高的3倍：CHW的关系

@@ -142,12 +142,12 @@ __global__ void kRadialBlur(unsigned char* img, unsigned width, unsigned height,
 		{
 			sh[pid_y - RADIUS][pid_x - RADIUS] = img[(g_y - RADIUS)*pitch + g_x - RADIUS];
 		}
-		if ((threadIdx.y >(BLOCK_HEIGHT - 1 - RADIUS)))
+		if ((threadIdx.y >(BLOCK_HEIGHT_MEANBLUR - 1 - RADIUS)))
 		{
 			sh[pid_y + RADIUS][pid_x - RADIUS] = img[(g_y + RADIUS)*pitch + g_x - RADIUS];
 		}
 	}
-	if ((threadIdx.x > (BLOCK_WIDTH - 1 - RADIUS)) && (g_x < (width - RADIUS)))
+	if ((threadIdx.x > (BLOCK_WIDTH_MEANBLUR - 1 - RADIUS)) && (g_x < (width - RADIUS)))
 	{
 		sh[pid_y][pid_x + RADIUS] = img[g_y*pitch + g_x + RADIUS];
 
@@ -155,7 +155,7 @@ __global__ void kRadialBlur(unsigned char* img, unsigned width, unsigned height,
 		{
 			sh[pid_y - RADIUS][pid_x + RADIUS] = img[(g_y - RADIUS)*pitch + g_x + RADIUS];
 		}
-		if ((threadIdx.y >(BLOCK_HEIGHT - 1 - RADIUS)) && (g_y < (height - RADIUS)))
+		if ((threadIdx.y >(BLOCK_HEIGHT_MEANBLUR - 1 - RADIUS)) && (g_y < (height - RADIUS)))
 		{
 			sh[pid_y + RADIUS][pid_x + RADIUS] = img[(g_y + RADIUS)*pitch + g_x + RADIUS];
 		}
@@ -165,7 +165,7 @@ __global__ void kRadialBlur(unsigned char* img, unsigned width, unsigned height,
 	{
 		sh[pid_y - RADIUS][pid_x] = img[(g_y - RADIUS)*pitch + g_x];
 	}
-	if ((threadIdx.y >(BLOCK_HEIGHT - 1 - RADIUS)) && (g_y < (height - RADIUS)))
+	if ((threadIdx.y >(BLOCK_HEIGHT_MEANBLUR - 1 - RADIUS)) && (g_y < (height - RADIUS)))
 	{
 		sh[pid_y + RADIUS][pid_x] = img[(g_y + RADIUS)*pitch + g_x];
 	}
@@ -217,15 +217,15 @@ void CudaMedianFilter(Dtype ** pImage, int imageWidth, int imageHeight, int kern
 }
 
 
-{
-	dim3 dGrid(width / BLOCK_WIDTH_MEANBLUR, height / BLOCK_HEIGHT_MEANBLUR);
-	dim3 dBlock(BLOCK_WIDTH, BLOCK_HEIGHT);
-
-	// execution of the version using global memory
-	cudaEventRecord(startEvent);
-	kRadialBlur<4> << < dGrid, dBlock >> > (d_img, width, height, pitch);
-	cudaThreadSynchronize();
-}
+//{
+//	dim3 dGrid(width / BLOCK_WIDTH_MEANBLUR, height / BLOCK_HEIGHT_MEANBLUR);
+//	dim3 dBlock(BLOCK_WIDTH_MEANBLUR, BLOCK_HEIGHT_MEANBLUR);
+//
+//	// execution of the version using global memory
+//	cudaEventRecord(startEvent);
+//	kRadialBlur<4> << < dGrid, dBlock >> > (d_img, width, height, pitch);
+//	cudaThreadSynchronize();
+//}
 
 
 #endif // !_FILTERS_H_
