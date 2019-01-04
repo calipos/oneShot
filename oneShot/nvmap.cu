@@ -402,10 +402,11 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 31,
-		ky = 31,
+		kx = 13,
+		ky = 13,
 		STEP = 1,
 	};
+	static const int naiveScopeK = 10;
 };
 
 
@@ -420,11 +421,14 @@ __global__ void computeVmapKernel(const float* depth, float* vmap, Dtype fx_inv,
 	{
 		float z = depth[pos_];;//already meter / 1000.f; // load and convert: mm -> meters
 
-		if (z >0.001)
+		if (z >0.01)
 		{
 			float vx = z * (u - cx) * fx_inv;
 			float vy = z * (v - cy) * fy_inv;
 			float vz = z;
+			
+			vx = static_cast<float>((int)(vx * 1000)) / 1000;
+			vy = static_cast<float>((int)(vy * 1000)) / 1000;
 
 			//vmap[pos_] = vx;
 			//vmap[pos_ + plane_cnt] = vy;
@@ -455,6 +459,36 @@ int createVMap<double>(const float*dataIn, float*dataOut, const double fx, const
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	return 0;
+}
+
+
+template <typename Dtype>
+__global__ void	computeNmapNaiveKernel(const Dtype*vmap, Dtype*nmap, int rows, int cols)
+{
+	int u = threadIdx.x + blockIdx.x * blockDim.x;
+	int v = threadIdx.y + blockIdx.y * blockDim.y;
+	if (u >= cols - NmapConfig<float>::naiveScopeK || v >= rows - NmapConfig<float>::naiveScopeK
+		|| u < NmapConfig<float>::naiveScopeK || v < NmapConfig<float>::naiveScopeK)
+		return;
+	int plane_cnt = cols*rows;
+	int pos_ = cols*v + u;
+
+	int u0 = u - NmapConfig<float>::naiveScopeK;
+	int v0 = v - NmapConfig<float>::naiveScopeK;
+	int u1 = u + NmapConfig<float>::naiveScopeK;
+	int v1 = v + NmapConfig<float>::naiveScopeK;
+	if (isnan(vmap[3 * (cols*v0 + u0)])|| isnan(vmap[3 * (cols*v1 + u1)]))
+		return;
+	
+	float3 diff;
+	diff.x = vmap[3 * (cols*v0 + u0)] - vmap[3 * (cols*v1 + u1)];
+	diff.y = vmap[3 * (cols*v0 + u0)+1] - vmap[3 * (cols*v1 + u1)+1];
+	diff.z = -vmap[3 * (cols*v0 + u0)+2] + vmap[3 * (cols*v1 + u1)+2];
+	float3 n = normalized(diff);
+	
+	nmap[3 * pos_] = n.x;
+	nmap[3 * pos_ + 1] = n.y;
+	nmap[3 * pos_ + 2] = n.z;
 }
 
 
@@ -533,8 +567,8 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 	u = threadIdx.x + blockIdx.x * blockDim.x;
 	v = threadIdx.y + blockIdx.y * blockDim.y;
 	
-	nmap[3*pos_] = vmap[3 * pos_]>0?n.x:-n.x;
-	nmap[3*pos_ + 1] = vmap[3 * pos_+1]>0 ? n.y : -n.y;
+	nmap[3*pos_] = n.z > 0 ? n.x: -n.x;
+	nmap[3*pos_ + 1] = n.z > 0 ? n.y: -n.y;
 	float nz2 = n.z > 0 ? n.z : -n.z;
 
 
@@ -557,8 +591,14 @@ int computeNormalsEigen<float>(const float*vmap, float*nmap, float*nmap_average,
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
+	//computeNmapNaiveKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
+
+	//averageFilter_3c<float> << <grid, block >> >(nmap, nmap_average, cols, rows, 5);
+	//cudaSafeCall(cudaGetLastError());
+	//cudaSafeCall(cudaDeviceSynchronize());
+
 	return 0;
 }
 
@@ -681,3 +721,5 @@ int tranformMaps<float>(const float* vmap_src, const float*Rmat_, const float*tv
 	cudaSafeCall(cudaDeviceSynchronize());
 	return 0;
 }
+
+

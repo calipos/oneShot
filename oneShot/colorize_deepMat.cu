@@ -1,16 +1,22 @@
 
 #include "unreGpu.h"
-#define DEPTHMAT_TRUC (0.8)
+#define DEPTHMAT_TRUC (1.5)
 
 int initOneDevDeep(
-	short*&depth_input, float*&depth_output,float*&depth_dev_med, 
+	short*&depth_input, float*&depth_output, short*&depth_output_bila,
+	float*&depth_dev_med, 
 	float*&depth_filled, float2*&depth_2, float2*&depth_3,
 	float*&vmap, float*&nmap, float*&nmap_average,
 	unsigned char*&rgbData, unsigned char*&newRgbData,
 	int depthRows, int depthCols, int colorRows, int colorCols)
 {
+#if AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5_UPDATA
+	depth_input = creatGpuData<short>(depthRows*depthCols,true);//在更新的策略中，depth_input也作为base，所以初始化会为0，每一次刷数据的时候只会刷到avg...中
+#else
 	depth_input = creatGpuData<short>(depthRows*depthCols);
+#endif
 	depth_output = creatGpuData<float>(colorRows*colorCols);
+	depth_output_bila = creatGpuData<short>(colorRows*colorCols);
 	depth_dev_med = creatGpuData<float>(colorRows*colorCols);
 	depth_filled = creatGpuData<float>(colorRows*colorCols);
 
@@ -32,6 +38,52 @@ int initOneDevDeep(
 	cudaSafeCall(cudaDeviceSynchronize());
 	return 0;
 }
+
+#ifdef AVERAGE_DEEP_3
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+	int rows, int cols)
+{
+	deep_average0 = creatGpuData<short>(rows*cols, true);
+	deep_average1 = creatGpuData<short>(rows*cols, true);
+	deep_average2 = creatGpuData<short>(rows*cols, true);
+	return 0;
+}
+#elif AVERAGE_DEEP_5
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+	int rows, int cols)
+{
+	deep_average0 = creatGpuData<short>(rows*cols, true);
+	deep_average1 = creatGpuData<short>(rows*cols, true);
+	deep_average2 = creatGpuData<short>(rows*cols, true);
+	deep_average3 = creatGpuData<short>(rows*cols, true);
+	deep_average4 = creatGpuData<short>(rows*cols, true);
+	return 0;
+}
+#endif // AVERAGE_DEEP_3
+
+
+#ifdef AVERAGE_DEEP_3_UPDATA
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+	int rows, int cols)
+{
+	deep_average0 = creatGpuData<short>(rows*cols, true);
+	deep_average1 = creatGpuData<short>(rows*cols, true);
+	deep_average2 = creatGpuData<short>(rows*cols, true);
+	return 0;
+}
+#elif AVERAGE_DEEP_5_UPDATA
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+	int rows, int cols)
+{
+	deep_average0 = creatGpuData<short>(rows*cols, true);
+	deep_average1 = creatGpuData<short>(rows*cols, true);
+	deep_average2 = creatGpuData<short>(rows*cols, true);
+	deep_average3 = creatGpuData<short>(rows*cols, true);
+	deep_average4 = creatGpuData<short>(rows*cols, true);
+	return 0;
+}
+#endif // AVERAGE_DEEP_3_UPDATA
+
 
 //__device__ __forceinline__
 //void invert3x3(const float * src, float * dst)

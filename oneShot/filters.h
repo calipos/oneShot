@@ -188,6 +188,59 @@ __global__ void kRadialBlur(unsigned char* img, unsigned width, unsigned height,
 
 }
 
+template<typename Dtype>
+__global__ void averageFilter_3c(const Dtype * input, Dtype * output, 
+	const unsigned int DATA_W, const  unsigned int DATA_H,const int radiusK)
+{
+	//float window_0[25];
+	//float window_1[25];
+	//float window_2[25];
+	float sum0 = 0.;
+	float sum1 = 0.;
+	float sum2 = 0.;
+
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= DATA_W && y >= DATA_H)
+		return;
+	int pos = 3*(DATA_W*y + x);
+	int availableCnt = 1;
+	for (int i = y - radiusK; i < y + radiusK; i++)
+	{
+		for (int j = x - radiusK; j < x + radiusK; j++)
+		{
+			int thisPos = 3 * (DATA_W*i + j);
+			if (i<0 || j<0 || j >= DATA_W || i >= DATA_H)
+			{
+				continue;
+			}
+			if (input[thisPos] == 0&& input[thisPos+1] == 0&& input[thisPos+2] == 0)
+			{
+				continue;
+			}
+			sum0 += input[thisPos];
+			sum1 += input[thisPos + 1];
+			sum2 += input[thisPos + 2];
+			availableCnt++;
+		}
+	}
+
+
+	if (availableCnt == 0)
+	{
+		output[pos] = numeric_limits<Dtype>::quiet_NaN();
+		output[pos + 1] = numeric_limits<Dtype>::quiet_NaN();
+		output[pos + 2] = numeric_limits<Dtype>::quiet_NaN();
+	}
+	else
+	{
+		output[pos] = sum0/ availableCnt;
+		output[pos + 1] = sum1 / availableCnt;
+		output[pos + 2] = sum2 / availableCnt;
+	}
+};
+
 
 template<typename Dtype>
 void CudaMedianFilter(Dtype ** pImage, int imageWidth, int imageHeight, int kernelSize)

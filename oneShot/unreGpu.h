@@ -204,12 +204,38 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
 
-int initOneDevDeep(short*&depth_input, float*&depth_output, 
+int initOneDevDeep(short*&depth_input, float*&depth_output, short*&depth_output_bila,
 	float*&depth_dev_med, float*&depth_filled, 
 	float2*&depth_2, float2*&depth_3,
 	float*&vmap, float*&nmap, float*&nmap_average,
 	unsigned char*&rgbData, unsigned char*&newRgbData,
 	int depthRows, int depthCols, int colorRows, int colorCols);
+
+#define AVERAGE_DEEP_5 0
+#define AVERAGE_DEEP_5_UPDATA 1
+#if AVERAGE_DEEP_3 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_3 && AVERAGE_DEEP_5_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_5_UPDATA
+#error "the models above cant be assigned at same time"
+#endif // AVERAGE_DEEP_5
+
+
+#ifdef AVERAGE_DEEP_3 1
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+	int rows, int cols);
+#elif AVERAGE_DEEP_5
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+	int rows, int cols);
+#endif // AVERAGE_DEEP_3
+
+#ifdef AVERAGE_DEEP_3_UPDATA
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+	int rows, int cols);
+#elif AVERAGE_DEEP_5_UPDATA
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+	int rows, int cols);
+#endif // AVERAGE_DEEP_3_UPDATA
+
+
+
 
 #ifdef DOWNSAMPLE3TIMES
 void midfilter33AndFillHoles44_downsample3t(short*depth_dev1, int rows1, int cols1,
@@ -248,6 +274,10 @@ raycastPoint(const short2* volume, float3* vmap, int rows, int cols,
 	float intr_cx, float intr_cy, float intr_fx, float intr_fy,
 	Mat33 R_inv, float3 t_, float3 cameraPos_, float tranc_dist);
 
+template<typename T>
+int bilateralFilter(const T*dataIn, T*dataOut, const int rows, const int cols);
+
+
 void medfilter33_forOneDev(
 	float*depth_dev1, int rows1, int cols1,
 	float*depth_dev1_midfiltered, float*depth_dev1_filled,
@@ -262,6 +292,25 @@ void colorize_deepMat(
 	Mat33d color_R, double3 color_t,
 	float* depth_new
 );
+
+#ifdef AVERAGE_DEEP_3
+template<typename Dtype>
+void combineavgrageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, Dtype*out, const int rows, const int cols);
+#elif avgRAGE_DEEP_5
+template<typename Dtype>
+void combineavgrageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
+	Dtype*out, const int rows, const int cols);
+#endif // AVERAGE_DEEP_3
+
+#ifdef AVERAGE_DEEP_3_UPDATA
+template<typename Dtype> void
+combineAverageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, 
+	Dtype*out, const int rows, const int cols);
+#elif AVERAGE_DEEP_5_UPDATA
+template<typename Dtype> void
+combineAverageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
+	Dtype*out, const int rows, const int cols);
+#endif // AVERAGE_DEEP_3_UPDATA
 
 void combineNmap2Rgb(
 	unsigned char*rgb, float*nmap,
