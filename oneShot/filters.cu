@@ -73,8 +73,8 @@ __global__ void bilateralKernel(const Dtype* src, Dtype* dst, const int rows, co
 template<>
 int bilateralFilter<float>(const float*dataIn, float*dataOut, const int rows, const int cols)
 {
-	float sigma_color = 15;     //in mm
-	float sigma_space = 20;     // in pixels
+	float sigma_color = 5;     //in mm
+	float sigma_space = 40;     // in pixels
 	dim3 block(32, 8);
 	dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 	cudaFuncSetCacheConfig(bilateralKernel<float>, cudaFuncCachePreferL1);
@@ -87,8 +87,8 @@ int bilateralFilter<float>(const float*dataIn, float*dataOut, const int rows, co
 template<>
 int bilateralFilter<short>(const short*dataIn, short*dataOut, const int rows, const int cols)
 {
-	float sigma_color = 15;     //in mm
-	float sigma_space = 20;     // in pixels
+	float sigma_color = 5;     //in mm
+	float sigma_space = 35;     // in pixels
 	dim3 block(32, 8);
 	dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 	cudaFuncSetCacheConfig(bilateralKernel<float>, cudaFuncCachePreferL1);
@@ -657,9 +657,9 @@ void medfilter33_forOneDev(
 
 
 #ifdef AVERAGE_DEEP_3
-template<typename Dtype> __global__
+template<typename Dtype1, typename Dtype2> __global__
 void combineAverageDeepKernel
-(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, Dtype*out, const int rows, const int cols)
+(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2, Dtype2*out, const int rows, const int cols)
 {
 	int u = threadIdx.x + blockIdx.x * blockDim.x;
 	int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -690,25 +690,36 @@ void combineAverageDeepKernel
 	}
 	else
 	{
-		out[pos] = static_cast<short>(sum/ notEmptyCnt);
+		out[pos] = static_cast<Dtype2>(sum/ notEmptyCnt);
 	}
 }
 template<>
-void combineavgrageDeep<short>(const short*avg0, const short*avg1, const short*avg2, short*out, const int rows, const int cols)
+void combineAverageDeep<short,short>(const short*avg0, const short*avg1, const short*avg2, short*out, const int rows, const int cols)
 {
 	dim3 block(32, 8);
 	dim3 grid(1, 1, 1);
 	grid.x = divUp(cols, block.x);
 	grid.y = divUp(rows, block.y);
-	combineavgrageDeepKernel<short> << <grid, block >> >(avg0, avg1, avg2, out, rows, cols);
+	combineAverageDeepKernel<short, short> << <grid, block >> >(avg0, avg1, avg2, out, rows, cols);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+}
+template<>
+void combineAverageDeep<short, float>(const short*avg0, const short*avg1, const short*avg2, float*out, const int rows, const int cols)
+{
+	dim3 block(32, 8);
+	dim3 grid(1, 1, 1);
+	grid.x = divUp(cols, block.x);
+	grid.y = divUp(rows, block.y);
+	combineAverageDeepKernel<short, float> << <grid, block >> >(avg0, avg1, avg2, out, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 }
 #elif AVERAGE_DEEP_5
-template<typename Dtype> __global__
+template<typename Dtype1, typename Dtype2> __global__
 void combineAverageDeepKernel
-(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
-	Dtype*out, const int rows, const int cols)
+(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2, const Dtype1*avg3, const Dtype1*avg4,
+	Dtype2*out, const int rows, const int cols)
 {
 	int u = threadIdx.x + blockIdx.x * blockDim.x;
 	int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -749,18 +760,30 @@ void combineAverageDeepKernel
 	}
 	else
 	{
-		out[pos] = static_cast<short>(sum / notEmptyCnt);
+		out[pos] = static_cast<Dtype2>(sum / notEmptyCnt);
 	}
 }
 template<>
-void combineavgrageDeep<short>(const short*avg0, const short*avg1, const short*avg2, const short*avg3, const short*avg4,
+void combineAverageDeep<short,short>(const short*avg0, const short*avg1, const short*avg2, const short*avg3, const short*avg4,
 	short*out, const int rows, const int cols)
 {
 	dim3 block(32, 8);
 	dim3 grid(1, 1, 1);
 	grid.x = divUp(cols, block.x);
 	grid.y = divUp(rows, block.y);
-	combineavgrageDeepKernel<short> << <grid, block >> >(avg0, avg1, avg2, avg3, avg4, out, rows, cols);
+	combineAverageDeepKernel<short, short> << <grid, block >> >(avg0, avg1, avg2, avg3, avg4, out, rows, cols);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+}
+template<>
+void combineAverageDeep<short, float>(const short*avg0, const short*avg1, const short*avg2, const short*avg3, const short*avg4,
+	float*out, const int rows, const int cols)
+{
+	dim3 block(32, 8);
+	dim3 grid(1, 1, 1);
+	grid.x = divUp(cols, block.x);
+	grid.y = divUp(rows, block.y);
+	combineAverageDeepKernel<short, float> << <grid, block >> >(avg0, avg1, avg2, avg3, avg4, out, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 }
@@ -779,12 +802,12 @@ struct combineAverageDeepUpdataParam
 };
 #endif
 #ifdef AVERAGE_DEEP_3_UPDATA
-template<typename Dtype> __global__ void
+template<typename Dtype1, typename Dtype2> __global__ void
 combineAverage3DeepUpdataKernel
-(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2,
-	Dtype*out, const int rows, const int cols)
+(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2,
+	Dtype2*out, const int rows, const int cols)
 {
-	__shared__ Dtype window[combineAverageDeepUpdataParam::WIDTH*combineAverageDeepUpdataParam::HEIGHT][3];
+	__shared__ Dtype1 window[combineAverageDeepUpdataParam::WIDTH*combineAverageDeepUpdataParam::HEIGHT][3];
 	unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
 	unsigned int tid = threadIdx.y*blockDim.y + threadIdx.x;
@@ -809,7 +832,7 @@ combineAverage3DeepUpdataKernel
 		}
 	}
 	int minDiffIdx = 0;
-	float minDiff = numeric_limits<Dtype>::max();
+	float minDiff = numeric_limits<Dtype2>::max();
 	for (int i = 0; i < 2; i++)
 	{
 		if (abs(window[tid][i]- window[tid][i+1])<minDiff)
@@ -828,12 +851,22 @@ combineAverage3DeepUpdataKernel
 	return;
 }
 template<> void
-combineAverageDeep<short>(const short*avg0, const short*avg1, const short*avg2,
+combineAverageDeep<short,float>(const short*avg0, const short*avg1, const short*avg2,
+	float*out, const int rows, const int cols)
+{
+	dim3 dimBlock(combineAverageDeepUpdataParam::WIDTH, combineAverageDeepUpdataParam::HEIGHT);
+	dim3 dimGrid((cols + dimBlock.x - 1) / dimBlock.x, (rows + dimBlock.y - 1) / dimBlock.y);
+	combineAverage3DeepUpdataKernel<short, float> << <dimGrid, dimBlock >> >(avg0, avg1, avg2, out, rows, cols);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+}
+template<> void
+combineAverageDeep<short, short>(const short*avg0, const short*avg1, const short*avg2,
 	short*out, const int rows, const int cols)
 {
 	dim3 dimBlock(combineAverageDeepUpdataParam::WIDTH, combineAverageDeepUpdataParam::HEIGHT);
 	dim3 dimGrid((cols + dimBlock.x - 1) / dimBlock.x, (rows + dimBlock.y - 1) / dimBlock.y);
-	combineAverage3DeepUpdataKernel<short> << <dimGrid, dimBlock >> >(avg0, avg1, avg2, out, rows, cols);
+	combineAverage3DeepUpdataKernel<short, short> << <dimGrid, dimBlock >> >(avg0, avg1, avg2, out, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 }
@@ -841,7 +874,7 @@ combineAverageDeep<short>(const short*avg0, const short*avg1, const short*avg2,
 template<typename Dtype> __global__ void
 combineAverage5DeepUpdataKernel
 (const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
-	Dtype*out, const int rows, const int cols)
+	float*out, const int rows, const int cols)
 {
 	__shared__ Dtype window[combineAverageDeepUpdataParam::WIDTH*combineAverageDeepUpdataParam::HEIGHT][5];
 	unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -855,6 +888,15 @@ combineAverage5DeepUpdataKernel
 	window[tid][2] = avg2[pos];
 	window[tid][3] = avg3[pos];
 	window[tid][4] = avg4[pos];
+	int emptyCnt = 0;
+	for (int i = 0; i < 5; i++)
+	{
+		if (window[tid][i] < 10)emptyCnt++;
+	}
+	if (emptyCnt>1)
+	{
+		out[pos] = 0;
+	}
 	for (int i = 0; i < 4; i++)
 	{
 		int minIdx = i;
@@ -884,13 +926,13 @@ combineAverage5DeepUpdataKernel
 	}
 	else
 	{
-		out[pos] = out[pos] * 0.9 + window[tid][minDiffIdx] * .1;
+		out[pos] = out[pos] * 0.8 + window[tid][minDiffIdx] * .2;
 	}
 	return;
 }
 template<> void
 combineAverageDeep<short>(const short*avg0, const short*avg1, const short*avg2, const short*avg3, const short*avg4,
-	short*out, const int rows, const int cols)
+	float*out, const int rows, const int cols)
 {
 	dim3 dimBlock(combineAverageDeepUpdataParam::WIDTH, combineAverageDeepUpdataParam::HEIGHT);
 	dim3 dimGrid((cols + dimBlock.x - 1) / dimBlock.x, (rows + dimBlock.y - 1) / dimBlock.y);

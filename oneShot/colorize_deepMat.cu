@@ -1,9 +1,9 @@
 
 #include "unreGpu.h"
-#define DEPTHMAT_TRUC (1.5)
+#define DEPTHMAT_TRUC (5.5)
 
 int initOneDevDeep(
-	short*&depth_input, float*&depth_output, short*&depth_output_bila,
+	short*&depth_input, float*&depth_output, float*&depth_output_bila,
 	float*&depth_dev_med, 
 	float*&depth_filled, float2*&depth_2, float2*&depth_3,
 	float*&vmap, float*&nmap, float*&nmap_average,
@@ -16,7 +16,7 @@ int initOneDevDeep(
 	depth_input = creatGpuData<short>(depthRows*depthCols);
 #endif
 	depth_output = creatGpuData<float>(colorRows*colorCols);
-	depth_output_bila = creatGpuData<short>(colorRows*colorCols);
+	depth_output_bila = creatGpuData<float>(colorRows*colorCols);
 	depth_dev_med = creatGpuData<float>(colorRows*colorCols);
 	depth_filled = creatGpuData<float>(colorRows*colorCols);
 
@@ -40,16 +40,30 @@ int initOneDevDeep(
 }
 
 #ifdef AVERAGE_DEEP_3
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+template<>
+int initAverageDeep<float>(short*&deep_average0, short*&deep_average1, short*&deep_average2, float*&deep_average_out,
 	int rows, int cols)
 {
 	deep_average0 = creatGpuData<short>(rows*cols, true);
 	deep_average1 = creatGpuData<short>(rows*cols, true);
 	deep_average2 = creatGpuData<short>(rows*cols, true);
+	deep_average_out = creatGpuData<float>(rows*cols, true);
+	return 0;
+}
+template<>
+int initAverageDeep<short>(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average_out,
+	int rows, int cols)
+{
+	deep_average0 = creatGpuData<short>(rows*cols, true);
+	deep_average1 = creatGpuData<short>(rows*cols, true);
+	deep_average2 = creatGpuData<short>(rows*cols, true);
+	deep_average_out = creatGpuData<short>(rows*cols, true);
 	return 0;
 }
 #elif AVERAGE_DEEP_5
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+template<>
+int initAverageDeep<float>(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, 
+	short*&deep_average4, float*&deep_average_out,
 	int rows, int cols)
 {
 	deep_average0 = creatGpuData<short>(rows*cols, true);
@@ -57,22 +71,40 @@ int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_aver
 	deep_average2 = creatGpuData<short>(rows*cols, true);
 	deep_average3 = creatGpuData<short>(rows*cols, true);
 	deep_average4 = creatGpuData<short>(rows*cols, true);
+	deep_average_out = creatGpuData<float>(rows*cols, true);
+	return 0;
+}
+template<>
+int initAverageDeep<short>(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3,
+	short*&deep_average4, short*&deep_average_out,
+	int rows, int cols)
+{
+	deep_average0 = creatGpuData<short>(rows*cols, true);
+	deep_average1 = creatGpuData<short>(rows*cols, true);
+	deep_average2 = creatGpuData<short>(rows*cols, true);
+	deep_average3 = creatGpuData<short>(rows*cols, true);
+	deep_average4 = creatGpuData<short>(rows*cols, true);
+	deep_average_out = creatGpuData<short>(rows*cols, true);
 	return 0;
 }
 #endif // AVERAGE_DEEP_3
 
 
 #ifdef AVERAGE_DEEP_3_UPDATA
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+template<>
+int initAverageDeep<float>(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+	float*&deep_average_out,
 	int rows, int cols)
 {
 	deep_average0 = creatGpuData<short>(rows*cols, true);
 	deep_average1 = creatGpuData<short>(rows*cols, true);
 	deep_average2 = creatGpuData<short>(rows*cols, true);
+	deep_average_out = creatGpuData<float>(rows*cols, true);
 	return 0;
 }
 #elif AVERAGE_DEEP_5_UPDATA
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, 
+	short*&deep_average4, float*&deep_average_out,
 	int rows, int cols)
 {
 	deep_average0 = creatGpuData<short>(rows*cols, true);
@@ -80,6 +112,7 @@ int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_aver
 	deep_average2 = creatGpuData<short>(rows*cols, true);
 	deep_average3 = creatGpuData<short>(rows*cols, true);
 	deep_average4 = creatGpuData<short>(rows*cols, true);
+	deep_average_out = creatGpuData<float>(rows*cols, true);
 	return 0;
 }
 #endif // AVERAGE_DEEP_3_UPDATA
@@ -139,8 +172,8 @@ void invert3x3(const double3 * src, double3 * dst)
 
 
 
-__global__ void
-colorize_deepMat_kernel(const short* depth_old,
+template<typename Dtype> __global__ void
+colorize_deepMat_kernel(const Dtype* depth_old,
 	int depthRows, int depthCols, int colorRows, int colorCols,
 	double4 deep_intr,
 	Mat33d deep_R, double3 deep_t,
@@ -192,9 +225,9 @@ colorize_deepMat_kernel(const short* depth_old,
 	depth_new[this_y*colorCols + this_x] = z;
 }
 
-
-void colorize_deepMat(
-	const short* depth_old,
+template<>
+void colorize_deepMat<float>(
+	const float* depth_old,
 	int depthRows, int depthCols, int colorRows, int colorCols,
 	double4 deep_intr,
 	Mat33d deep_R, double3 deep_t,
@@ -209,10 +242,38 @@ void colorize_deepMat(
 	cudaSafeCall(cudaDeviceSynchronize());
 	cudaMemset(depth_new, 0, sizeof(float)*colorRows * colorCols);
 	//scales depth along ray and converts mm -> meters. 
-	colorize_deepMat_kernel << <grid_scale, block_scale >> >(depth_old,
+	colorize_deepMat_kernel<float> << <grid_scale, block_scale >> >(depth_old,
 		depthRows, depthCols, colorRows, colorCols,
 		deep_intr,	deep_R, deep_t,
 		color_intr,	color_R, color_t,
+		depth_new);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+}
+
+
+
+template<>
+void colorize_deepMat<short>(
+	const short* depth_old,
+	int depthRows, int depthCols, int colorRows, int colorCols,
+	double4 deep_intr,
+	Mat33d deep_R, double3 deep_t,
+	double4 color_intr,
+	Mat33d color_R, double3 color_t,
+	float* depth_new
+	)
+{
+	dim3 block_scale(32, 8);
+	dim3 grid_scale(divUp(depthCols, block_scale.x), divUp(depthRows, block_scale.y));
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+	cudaMemset(depth_new, 0, sizeof(float)*colorRows * colorCols);
+	//scales depth along ray and converts mm -> meters. 
+	colorize_deepMat_kernel<short> << <grid_scale, block_scale >> >(depth_old,
+		depthRows, depthCols, colorRows, colorCols,
+		deep_intr, deep_R, deep_t,
+		color_intr, color_R, color_t,
 		depth_new);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());

@@ -402,13 +402,14 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 13,
-		ky = 13,
+		kx = 19,
+		ky = 19,
 		STEP = 1,
 	};
 	static const int naiveScopeK = 10;
+#define NmapConfig_Restriction (0.01)
 };
-
+//template<typename Dtype> const float  NmapConfig<Dtype>::restriction= 5. ;提示该变量没有定义在device
 
 template <typename Dtype>
 __global__ void computeVmapKernel(const float* depth, float* vmap, Dtype fx_inv, Dtype fy_inv, Dtype cx, Dtype cy, const int rows, const int cols)
@@ -489,6 +490,87 @@ __global__ void	computeNmapNaiveKernel(const Dtype*vmap, Dtype*nmap, int rows, i
 	nmap[3 * pos_] = n.x;
 	nmap[3 * pos_ + 1] = n.y;
 	nmap[3 * pos_ + 2] = n.z;
+}
+
+
+template <typename Dtype>
+__global__ void	computeNmapRestrictedKernel(const Dtype*vmap, Dtype*nmap, int rows, int cols)
+{
+	int u = threadIdx.x + blockIdx.x * blockDim.x;
+	int v = threadIdx.y + blockIdx.y * blockDim.y;
+	if (u >= cols || v >= rows)
+		return;
+	int plane_cnt = cols*rows;
+	int pos_ = cols*v + u;
+
+	if (isnan(vmap[3 * pos_]))
+		return;
+	int ty = min(v - NmapConfig<Dtype>::ky / 2 + NmapConfig<Dtype>::ky, rows - 1);
+	int tx = min(u - NmapConfig<Dtype>::kx / 2 + NmapConfig<Dtype>::kx, cols - 1);
+
+	float3 centroid = make_float3(0.f, 0.f, 0.f);
+	int counter = 0;
+	Dtype anchor = vmap[3 * pos_ + 2];
+	for (int cy = max(v - NmapConfig<Dtype>::ky / 2, 0); cy < ty; cy += NmapConfig<Dtype>::STEP)
+		for (int cx = max(u - NmapConfig<Dtype>::kx / 2, 0); cx < tx; cx += NmapConfig<Dtype>::STEP)
+		{
+			int pos_2 = cols*cy + cx;
+			float v_x = vmap[3 * pos_2];
+			if (!isnan(v_x) && abs(anchor -vmap[3 * pos_2 + 2]) <= NmapConfig_Restriction)
+			{
+				centroid.x += v_x;
+				centroid.y += vmap[3 * pos_2 + 1];
+				centroid.z += vmap[3 * pos_2 + 2];
+				++counter;
+			}
+		}
+
+	if (counter < NmapConfig<Dtype>::kx * NmapConfig<Dtype>::ky * 3 / 4)
+		return;
+
+	centroid = centroid*(1.f / counter);
+
+	float cov[] = { 0, 0, 0, 0, 0, 0 };
+
+	for (int cy = max(v - NmapConfig<Dtype>::ky / 2, 0); cy < ty; cy += NmapConfig<Dtype>::STEP)
+		for (int cx = max(u - NmapConfig<Dtype>::kx / 2, 0); cx < tx; cx += NmapConfig<Dtype>::STEP)
+		{
+			int pos_3 = cols*cy + cx;
+			float3 v;
+			v.x = vmap[3 * pos_3];
+			if (isnan(v.x) || abs(anchor - vmap[3 * pos_3 + 2]) > NmapConfig_Restriction)
+				continue;
+			v.y = vmap[3 * pos_3 + 1];
+			v.z = vmap[3 * pos_3 + 2];
+
+			float3 d = v - centroid;
+
+			cov[0] += d.x * d.x;               //cov (0, 0)
+			cov[1] += d.x * d.y;               //cov (0, 1)
+			cov[2] += d.x * d.z;               //cov (0, 2)
+			cov[3] += d.y * d.y;               //cov (1, 1)
+			cov[4] += d.y * d.z;               //cov (1, 2)
+			cov[5] += d.z * d.z;               //cov (2, 2)
+		}
+
+	typedef Eigen33::Mat33 Mat33;
+	Eigen33 eigen33(cov);
+
+	Mat33 tmp;
+	Mat33 vec_tmp;
+	Mat33 evecs;
+	float3 evals;
+	eigen33.compute(tmp, vec_tmp, evecs, evals);
+
+	float3 n = normalized(evecs[0]);
+
+	u = threadIdx.x + blockIdx.x * blockDim.x;
+	v = threadIdx.y + blockIdx.y * blockDim.y;
+
+	nmap[3 * pos_] = n.z > 0 ? n.x : -n.x;
+	nmap[3 * pos_ + 1] = n.z > 0 ? n.y : -n.y;
+	float nz2 = n.z > 0 ? -n.z : n.z;
+	nmap[3 * pos_ + 2] = nz2;
 }
 
 
@@ -590,8 +672,9 @@ int computeNormalsEigen<float>(const float*vmap, float*nmap, float*nmap_average,
 	cudaMemset(nmap, 0, 3* rows* cols * sizeof(float));
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
-	computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
+	//computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
 	//computeNmapNaiveKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
+	computeNmapRestrictedKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 

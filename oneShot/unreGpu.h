@@ -204,7 +204,7 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
 
-int initOneDevDeep(short*&depth_input, float*&depth_output, short*&depth_output_bila,
+int initOneDevDeep(short*&depth_input, float*&depth_output, float*&depth_output_bila,
 	float*&depth_dev_med, float*&depth_filled, 
 	float2*&depth_2, float2*&depth_3,
 	float*&vmap, float*&nmap, float*&nmap_average,
@@ -219,18 +219,24 @@ int initOneDevDeep(short*&depth_input, float*&depth_output, short*&depth_output_
 
 
 #ifdef AVERAGE_DEEP_3 1
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+template<typename Dtype>
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, Dtype*&deep_average_out,
 	int rows, int cols);
 #elif AVERAGE_DEEP_5
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+template<typename Dtype>
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, 
+	short*&deep_average4, Dtype*&deep_average_out,
 	int rows, int cols);
 #endif // AVERAGE_DEEP_3
 
 #ifdef AVERAGE_DEEP_3_UPDATA
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2,
+template<typename Dtype>
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, Dtype*&deep_average_out,
 	int rows, int cols);
 #elif AVERAGE_DEEP_5_UPDATA
-int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, short*&deep_average3, short*&deep_average4,
+int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, 
+	short*&deep_average3, short*&deep_average4,
+	float*&deep_average_out,
 	int rows, int cols);
 #endif // AVERAGE_DEEP_3_UPDATA
 
@@ -283,8 +289,9 @@ void medfilter33_forOneDev(
 	float*depth_dev1_midfiltered, float*depth_dev1_filled,
 	float2*depth_dev2, int rows2, int cols2,
 	float2*depth_dev3, int rows3, int cols3);
+template<typename Dtype>
 void colorize_deepMat(
-	const short* depth_old, 
+	const Dtype* depth_old,
 	int depthRows, int depthCols, int colorRows, int colorCols,
 	double4 deep_intr,
 	Mat33d deep_R, double3 deep_t,
@@ -294,22 +301,23 @@ void colorize_deepMat(
 );
 
 #ifdef AVERAGE_DEEP_3
-template<typename Dtype>
-void combineavgrageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, Dtype*out, const int rows, const int cols);
-#elif avgRAGE_DEEP_5
-template<typename Dtype>
-void combineavgrageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
-	Dtype*out, const int rows, const int cols);
+template<typename Dtype1, typename Dtype2>
+void combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2, Dtype2*out, const int rows, const int cols);
+#elif AVERAGE_DEEP_5
+template<typename Dtype1, typename Dtype2>
+void combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2, const Dtype1*avg3,
+	const Dtype1*avg4,
+	Dtype2*out, const int rows, const int cols);
 #endif // AVERAGE_DEEP_3
 
 #ifdef AVERAGE_DEEP_3_UPDATA
-template<typename Dtype> void
-combineAverageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, 
-	Dtype*out, const int rows, const int cols);
+template<typename Dtype1, typename Dtype2> void
+combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2,
+	Dtype2*out, const int rows, const int cols);
 #elif AVERAGE_DEEP_5_UPDATA
 template<typename Dtype> void
 combineAverageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
-	Dtype*out, const int rows, const int cols);
+	float*out, const int rows, const int cols);
 #endif // AVERAGE_DEEP_3_UPDATA
 
 void combineNmap2Rgb(

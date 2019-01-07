@@ -90,7 +90,7 @@ namespace unre
 
 		short*depth_dev_input = NULL;
 		float*depth_dev_output = NULL;
-		short*depth_dev_bila = NULL;
+		float*depth_dev_bila = NULL;
 		float*depth_dev_med = NULL;//用来接受中值滤波的结果
 		float*depth_filled = NULL;//用来接受填充的结果
 		float2*depth_2 = NULL;//用来接受2阶下采样
@@ -104,21 +104,27 @@ namespace unre
 
 #ifdef AVERAGE_DEEP_3		
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL;
-		initAverageDeep(deep_average0, deep_average1, deep_average2,
+		float*deep_average_out = NULL;
+		initAverageDeep<float>(deep_average0, deep_average1, deep_average2, deep_average_out,
 			imgs[1]->rows, imgs[1]->cols);
 #elif AVERAGE_DEEP_5
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL, *deep_average3 = NULL, *deep_average4 = NULL;
+		float*deep_average_out = NULL;
 		initAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4,
+			deep_average_out,
 			imgs[1]->rows, imgs[1]->cols);
 #endif // AVERAGE_DEEP_3
 		
 #ifdef AVERAGE_DEEP_3_UPDATA
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL;
-		initAverageDeep(deep_average0, deep_average1, deep_average2,
+		float*deep_average_out = NULL;
+		initAverageDeep<float>(deep_average0, deep_average1, deep_average2, deep_average_out,
 			imgs[1]->rows, imgs[1]->cols);
 #elif AVERAGE_DEEP_5_UPDATA
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL, *deep_average3 = NULL, *deep_average4 = NULL;
+		float*deep_average_out = NULL;
 		initAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4,
+			deep_average_out,
 			imgs[1]->rows, imgs[1]->cols);
 #endif // AVERAGE_DEEP_3_UPDATA		
 
@@ -242,18 +248,22 @@ namespace unre
 			}
 			else
 			{
+				cv::FileStorage fs("depth.yml",cv::FileStorage::WRITE);
+				fs << "depth" << *imgs[1];
+				fs << "intr" << *stream2Intr[1];
+				fs.release();
 				cudaMemcpy(deep_average4, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
 			}
 #endif
 			
 #ifdef AVERAGE_DEEP_3
-			combineAverageDeep(deep_average0, deep_average1, deep_average2, depth_dev_input, imgs[1]->rows , imgs[1]->cols);
+			combineAverageDeep<short,float>(deep_average0, deep_average1, deep_average2, deep_average_out, imgs[1]->rows , imgs[1]->cols);
 #elif AVERAGE_DEEP_5
-			combineAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4, depth_dev_input, imgs[1]->rows, imgs[1]->cols);
+			combineAverageDeep<short, float>(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #elif AVERAGE_DEEP_3_UPDATA
-			combineAverageDeep(deep_average0, deep_average1, deep_average2, depth_dev_input, imgs[1]->rows, imgs[1]->cols);
+			combineAverageDeep(deep_average0, deep_average1, deep_average2, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #elif AVERAGE_DEEP_5_UPDATA
-			combineAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4, depth_dev_input, imgs[1]->rows, imgs[1]->cols);
+			combineAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #else
 			cudaMemcpy(depth_dev_input, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
 #endif // !AVERAGE_DEEP_3
@@ -262,9 +272,8 @@ namespace unre
 			cudaMemcpy(showAve.data, depth_dev_input, imgs[1]->rows*imgs[1]->cols * sizeof(short), cudaMemcpyDeviceToHost);
 
 
-			bilateralFilter<short>(depth_dev_input, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
-
-			colorize_deepMat(depth_dev_bila,
+			
+			colorize_deepMat(deep_average_out,
 				imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols,
 				intr_depth,
 				R_depth, t_depth,
@@ -273,9 +282,10 @@ namespace unre
 				depth_dev_output
 			);
 
+			
 
-			cv::Mat showDevBeforeeMed(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
-			cudaMemcpy(showDevBeforeeMed.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			//cv::Mat showDevBeforeeMed(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			//cudaMemcpy(showDevBeforeeMed.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
 
 			int downsample_h2 = imgs[0]->rows / 4;
 			int downsample_w2 = imgs[0]->cols / 4;
@@ -285,6 +295,10 @@ namespace unre
 				depth_dev_med, depth_filled,
 				depth_2, downsample_h2, downsample_w2,
 				depth_3, downsample_h3, downsample_w3);
+
+			//bilateralFilter<float>(depth_filled, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+
+
 //#define SHOW_DOWNSAMPLE
 #ifdef SHOW_DOWNSAMPLE
 			float2*hostDownSample2 = new float2[imgs[0]->rows* imgs[0]->cols / 16];
@@ -310,18 +324,22 @@ namespace unre
 			cudaMemcpy(showDev0.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
 			cv::imshow("123", showDev0);
 			cv::waitKey(10);
-			continue;
+			//continue;
 			cv::Mat showDev1(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
 			cudaMemcpy(showDev1.data, depth_dev_med, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
-			cv::imshow("123", showDev1);
+			cv::imshow("1234", showDev1);
 			cv::waitKey(10);
-			continue;
+			//continue;
 			cv::Mat showDev2(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
-			cudaMemcpy(showDev2.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
-			cv::imshow("123", showDev2);
+			cudaMemcpy(showDev2.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::imshow("12345", showDev2);
 			cv::waitKey(10);
 			continue;
 #endif // SHOW_FILLRESULT
+			cv::Mat showDevBeforeeVmap(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			cudaMemcpy(showDevBeforeeVmap.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+
+
 			createVMap<double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
 
 //#define SHOW_VMAP
@@ -330,8 +348,8 @@ namespace unre
 			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
 			cv::imshow("123", showDev3);
 			cv::waitKey(10);
-			continue;
-#define SIMPLE_NMAP
+			//continue;
+//#define SIMPLE_NMAP
 #ifdef SIMPLE_NMAP
 			int scope_k = 13;
 			cv::Mat simple_nmap=cv::Mat::zeros(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
@@ -362,7 +380,7 @@ namespace unre
 //#define SHOW_NMAP
 #ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
-			cudaMemcpy(showDev4.data, nmap_average, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
+			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
 			cv::imshow("showDev4", showDev4);
 			cv::waitKey(10);
 			continue;
