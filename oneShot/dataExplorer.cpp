@@ -15,7 +15,7 @@
 //#define CHECK_CUDA_VOXEL //和CHECK_CUDA_RAYCAST不能同时开启，因为会有变量重定义
 //#define CHECK_CUDA_RAYCAST
 
-#define PCL_SHOW
+
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
 #endif // PCL_SHOW

@@ -3,7 +3,7 @@
 #define DEPTHMAT_TRUC (5.5)
 
 int initOneDevDeep(
-	short*&depth_input, float*&depth_output, float*&depth_output_bila,
+	short*&depth_input, float*&depth_output, short*&depth_output_bila,
 	float*&depth_dev_med, 
 	float*&depth_filled, float2*&depth_2, float2*&depth_3,
 	float*&vmap, float*&nmap, float*&nmap_average,
@@ -16,7 +16,7 @@ int initOneDevDeep(
 	depth_input = creatGpuData<short>(depthRows*depthCols);
 #endif
 	depth_output = creatGpuData<float>(colorRows*colorCols);
-	depth_output_bila = creatGpuData<float>(colorRows*colorCols);
+	depth_output_bila = creatGpuData<short>(colorRows*colorCols);
 	depth_dev_med = creatGpuData<float>(colorRows*colorCols);
 	depth_filled = creatGpuData<float>(colorRows*colorCols);
 
@@ -39,7 +39,17 @@ int initOneDevDeep(
 	return 0;
 }
 
-#ifdef AVERAGE_DEEP_3
+
+#if N2MAP
+template<>
+int initN2map<float>(float*&n2map, const int rows, const int cols)
+{
+	n2map = creatGpuData<float>(rows*cols*3);
+	return 0;
+}
+#endif // N2MAP
+
+#if AVERAGE_DEEP_3
 template<>
 int initAverageDeep<float>(short*&deep_average0, short*&deep_average1, short*&deep_average2, float*&deep_average_out,
 	int rows, int cols)
@@ -90,7 +100,7 @@ int initAverageDeep<short>(short*&deep_average0, short*&deep_average1, short*&de
 #endif // AVERAGE_DEEP_3
 
 
-#ifdef AVERAGE_DEEP_3_UPDATA
+#if AVERAGE_DEEP_3_UPDATA
 template<>
 int initAverageDeep<float>(short*&deep_average0, short*&deep_average1, short*&deep_average2,
 	float*&deep_average_out,
@@ -115,8 +125,26 @@ int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_aver
 	deep_average_out = creatGpuData<float>(rows*cols, true);
 	return 0;
 }
+#elif AVERAGE_DEEP_15_UPDATA
+int initAverageDeep(short*&deep_average15, float*&deep_average_out, int rows, int cols)
+{
+	deep_average15 = creatGpuData<short>(rows*cols*15, true);
+	deep_average_out = creatGpuData<float>(rows*cols, true);
+	return 0;
+}
 #endif // AVERAGE_DEEP_3_UPDATA
 
+#if FITDEEP_WITHNORMAL
+int initFitdeep(float*&vmap, float*&namp0, float*&namp1, float*&vamp0, float*&vamp1, const int rows, const int cols)
+{
+	vmap = creatGpuData<float>(3 * rows*cols, true);
+	namp0 = creatGpuData<float>(3 * rows*cols, true);
+	namp1 = creatGpuData<float>(3 * rows*cols, true);
+	vamp0 = creatGpuData<float>(3 * rows*cols, true);
+	vamp1 = creatGpuData<float>(3 * rows*cols, true);
+	return 0;
+}
+#endif
 
 //__device__ __forceinline__
 //void invert3x3(const float * src, float * dst)

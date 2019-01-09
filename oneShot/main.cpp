@@ -25,8 +25,8 @@ extern int TEST_oneDev();
 extern int TEST_inverse();
 int main()
 {
-	TEST_oneDev();
-	//TEST_calib();
+	//TEST_oneDev();
+	TEST_calib();
 	//TEST_generate_testDepthMat();
 	//TEST_tsdf();
 	//TEST_dataExplorer_destroy();

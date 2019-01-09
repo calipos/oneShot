@@ -204,21 +204,32 @@ int initVolu(short*&depth_dev, float*&scaledDepth, float3*&dev_vmap,
 	short2*&depth_2, short2*&depth_3,
 	int depthRows, int depthCols);
 
-int initOneDevDeep(short*&depth_input, float*&depth_output, float*&depth_output_bila,
+int initOneDevDeep(short*&depth_input, float*&depth_output, short*&depth_output_bila,
 	float*&depth_dev_med, float*&depth_filled, 
 	float2*&depth_2, float2*&depth_3,
 	float*&vmap, float*&nmap, float*&nmap_average,
 	unsigned char*&rgbData, unsigned char*&newRgbData,
 	int depthRows, int depthCols, int colorRows, int colorCols);
 
+//#define PCL_SHOW
 #define AVERAGE_DEEP_5 0
 #define AVERAGE_DEEP_5_UPDATA 1
-#if AVERAGE_DEEP_3 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_3 && AVERAGE_DEEP_5_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_5_UPDATA
+#define FITDEEP_WITHNORMAL 0
+#define N2MAP 0
+#if AVERAGE_DEEP_3 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_3 && AVERAGE_DEEP_5_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_5_UPDATA|| AVERAGE_DEEP_3 && AVERAGE_DEEP_15_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_15_UPDATA
+#error "the models above cant be assigned at same time"
+#endif // AVERAGE_DEEP_5
+#if AVERAGE_DEEP_3 && FITDEEP_WITHNORMAL || AVERAGE_DEEP_5 && FITDEEP_WITHNORMAL || FITDEEP_WITHNORMAL && AVERAGE_DEEP_3_UPDATA || FITDEEP_WITHNORMAL && AVERAGE_DEEP_5_UPDATA|| FITDEEP_WITHNORMAL && AVERAGE_DEEP_15_UPDATA 
 #error "the models above cant be assigned at same time"
 #endif // AVERAGE_DEEP_5
 
+#if N2MAP
+template<typename Dtype>
+int initN2map(Dtype*&n2map, const int rows, const int cols);
+#endif // N2MAP
 
-#ifdef AVERAGE_DEEP_3 1
+
+#if AVERAGE_DEEP_3 1
 template<typename Dtype>
 int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, Dtype*&deep_average_out,
 	int rows, int cols);
@@ -229,7 +240,7 @@ int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_aver
 	int rows, int cols);
 #endif // AVERAGE_DEEP_3
 
-#ifdef AVERAGE_DEEP_3_UPDATA
+#if AVERAGE_DEEP_3_UPDATA
 template<typename Dtype>
 int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_average2, Dtype*&deep_average_out,
 	int rows, int cols);
@@ -238,9 +249,13 @@ int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_aver
 	short*&deep_average3, short*&deep_average4,
 	float*&deep_average_out,
 	int rows, int cols);
+#elif AVERAGE_DEEP_15_UPDATA
+int initAverageDeep(short*&deep_average15,float*&deep_average_out,int rows, int cols);
 #endif // AVERAGE_DEEP_3_UPDATA
 
-
+#if FITDEEP_WITHNORMAL
+int initFitdeep(float*&vmap, float*&namp1, float*&namp2, float*&vamp1, float*&vamp2,const int rows, const int cols);
+#endif
 
 
 #ifdef DOWNSAMPLE3TIMES
@@ -257,12 +272,14 @@ void midfilter33AndFillHoles44_downsample2t(short*depth_dev1, int rows1, int col
 #endif // DOWNSAMPLE3TIMES
 
 
-template<typename T>
-int createVMap(const float*dataIn, float*dataOut, const T fx, const T fy, const T cx, const T cy, const int rows, const int cols);
+template<typename Dtype, typename T>
+int createVMap(const Dtype*dataIn, float*dataOut, const T fx, const T fy, const T cx, const T cy, const int rows, const int cols);
 
 
 template<typename T>
 int computeNormalsEigen(const T*vmap, T*nmap, T*nmap_average, int rows, int cols);
+template<typename T>
+int computeN2ormalsEigen(const T*vmap, T*nmap, T*nmap_average, int rows, int cols);
 
 template<typename T>
 int tranformMaps(const T* vmap_src, const T* nmap_src, const T*Rmat_, const T*tvec_, T* vmap_dst, T* nmap_dst, const int& rows, const int& cols);
@@ -300,7 +317,7 @@ void colorize_deepMat(
 	float* depth_new
 );
 
-#ifdef AVERAGE_DEEP_3
+#if AVERAGE_DEEP_3
 template<typename Dtype1, typename Dtype2>
 void combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2, Dtype2*out, const int rows, const int cols);
 #elif AVERAGE_DEEP_5
@@ -310,7 +327,7 @@ void combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2,
 	Dtype2*out, const int rows, const int cols);
 #endif // AVERAGE_DEEP_3
 
-#ifdef AVERAGE_DEEP_3_UPDATA
+#if AVERAGE_DEEP_3_UPDATA
 template<typename Dtype1, typename Dtype2> void
 combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2,
 	Dtype2*out, const int rows, const int cols);
@@ -318,7 +335,15 @@ combineAverageDeep(const Dtype1*avg0, const Dtype1*avg1, const Dtype1*avg2,
 template<typename Dtype> void
 combineAverageDeep(const Dtype*avg0, const Dtype*avg1, const Dtype*avg2, const Dtype*avg3, const Dtype*avg4,
 	float*out, const int rows, const int cols);
+#elif AVERAGE_DEEP_15_UPDATA
+template<typename Dtype1, typename Dtype2> void
+combineAverageDeep(const Dtype1*deep_average15, Dtype2*deep_average_out, const int rows, const int cols);
 #endif // AVERAGE_DEEP_3_UPDATA
+
+#if FITDEEP_WITHNORMAL
+template<typename Dtype1, typename Dtype2> void
+fitVmap(Dtype2*vmap, Dtype2*nmap0, Dtype2*nmap1, Dtype2*vmap0, Dtype2*vmap1, const int rows, const int cols);
+#endif
 
 void combineNmap2Rgb(
 	unsigned char*rgb, float*nmap,

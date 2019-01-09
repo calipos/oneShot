@@ -19,9 +19,9 @@
 //#pragma comment(lib,"realsense2.lib")    = = 不起作用
 #endif // USE_REALSENSE
 #ifdef	REALSENSE_POST_FILTER
-static rs2::decimation_filter dec_filter(5 );  // Decimation - reduces depth frame density
+static rs2::decimation_filter dec_filter(2 );  // Decimation - reduces depth frame density
 static rs2::spatial_filter spat_filter( 0.5,20.,2,1. );    // Spatial    - edge-preserving spatial smoothing
-static rs2::temporal_filter temp_filter( 0.5,20.,1. );   // Temporal   - reduces temporal noise
+static rs2::temporal_filter temp_filter( 0.4,20.,1. );   // Temporal   - reduces temporal noise
 #endif // REALSENSE_POST_FILTER 
 namespace unre
 {

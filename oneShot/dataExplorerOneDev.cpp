@@ -7,6 +7,9 @@
 
 #include"unreGpu.h"
 
+#ifdef PCL_SHOW
+#include "pcl/visualization/cloud_viewer.h"
+#endif // PCL_SHOW
 
 
 
@@ -90,7 +93,7 @@ namespace unre
 
 		short*depth_dev_input = NULL;
 		float*depth_dev_output = NULL;
-		float*depth_dev_bila = NULL;
+		short*depth_dev_bila = NULL;
 		float*depth_dev_med = NULL;//用来接受中值滤波的结果
 		float*depth_filled = NULL;//用来接受填充的结果
 		float2*depth_2 = NULL;//用来接受2阶下采样
@@ -101,8 +104,12 @@ namespace unre
 		unsigned char*rgbData = NULL;
 		unsigned char*newRgbData = NULL;
 		initOneDevDeep(depth_dev_input,depth_dev_output, depth_dev_bila,depth_dev_med, depth_filled, depth_2, depth_3,vmap, nmap, nmap_average,rgbData, newRgbData, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
+#if N2MAP			
+		float*n2map = NULL;
+		initN2map<float>(n2map, imgs[0]->rows, imgs[0]->cols);
+#endif // N2MAP
 
-#ifdef AVERAGE_DEEP_3		
+#if AVERAGE_DEEP_3		
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL;
 		float*deep_average_out = NULL;
 		initAverageDeep<float>(deep_average0, deep_average1, deep_average2, deep_average_out,
@@ -115,7 +122,7 @@ namespace unre
 			imgs[1]->rows, imgs[1]->cols);
 #endif // AVERAGE_DEEP_3
 		
-#ifdef AVERAGE_DEEP_3_UPDATA
+#if AVERAGE_DEEP_3_UPDATA
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL;
 		float*deep_average_out = NULL;
 		initAverageDeep<float>(deep_average0, deep_average1, deep_average2, deep_average_out,
@@ -126,7 +133,21 @@ namespace unre
 		initAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4,
 			deep_average_out,
 			imgs[1]->rows, imgs[1]->cols);
+#elif AVERAGE_DEEP_15_UPDATA
+		short*deep_average15 = NULL;
+		float*deep_average_out = NULL;
+		initAverageDeep(deep_average15, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #endif // AVERAGE_DEEP_3_UPDATA		
+
+#if FITDEEP_WITHNORMAL
+		float*vmap_in_out = NULL;
+		float*vmap0 = NULL;
+		float*vmap1 = NULL;
+		float*nmap0 = NULL;
+		float*nmap1 = NULL;
+		initFitdeep(vmap_in_out, nmap0, nmap1, vmap0, vmap1, imgs[0]->rows, imgs[0]->cols);
+#endif // FITDEEP_WITHNORMAL
+
 
 		double4 intr_depth;//fx,fy,cx,cy
 		intr_depth.w = stream2Intr[1]->ptr<double>(0)[0];
@@ -154,7 +175,16 @@ namespace unre
 		t_color.y = std::get<1>(stream2Extr[0]).ptr<double>(1)[0];
 		t_color.z = std::get<1>(stream2Extr[0]).ptr<double>(2)[0];
 
-	
+#ifdef PCL_SHOW
+		pcl::visualization::PCLVisualizer cloud_viewer_;
+		cloud_viewer_.setBackgroundColor(0, 0, 0.15);
+		cloud_viewer_.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1);
+		cloud_viewer_.addCoordinateSystem(1.0, "global");
+		cloud_viewer_.initCameraParameters();
+		cloud_viewer_.setPosition(0, 0);
+		cloud_viewer_.setSize(640, 360);
+		cloud_viewer_.setCameraClipDistances(0.01, 10.01);
+#endif
 		int frameIdx = -1;
 		while (1)
 		{
@@ -176,6 +206,8 @@ namespace unre
 			//	imgs[1], stream2Intr[1], &std::get<0>(stream2Extr[1]), &std::get<1>(stream2Extr[1]),
 			//	&colorized);
 			
+
+
 #ifdef AVERAGE_DEEP_3
 			frameIdx %= 3;
 			if (frameIdx==0)
@@ -233,30 +265,49 @@ namespace unre
 			if (frameIdx == 0)
 			{
 				cudaMemcpy(deep_average0, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+				bilateralFilter<short>(deep_average0, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+				auto temp = deep_average0;
+				deep_average0 = depth_dev_bila;
+				depth_dev_bila = temp;
 			}
 			else if (frameIdx == 1)
 			{
 				cudaMemcpy(deep_average1, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+				bilateralFilter<short>(deep_average1, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+				auto temp = deep_average1;
+				deep_average1 = depth_dev_bila;
+				depth_dev_bila = temp;
 			}
 			else if (frameIdx == 2)
 			{
 				cudaMemcpy(deep_average2, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+				bilateralFilter<short>(deep_average2, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+				auto temp = deep_average2;
+				deep_average2 = depth_dev_bila;
+				depth_dev_bila = temp;
 			}
 			else if (frameIdx == 3)
 			{
 				cudaMemcpy(deep_average3, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+				bilateralFilter<short>(deep_average3, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+				auto temp = deep_average3;
+				deep_average3 = depth_dev_bila;
+				depth_dev_bila = temp;
 			}
 			else
 			{
-				cv::FileStorage fs("depth.yml",cv::FileStorage::WRITE);
-				fs << "depth" << *imgs[1];
-				fs << "intr" << *stream2Intr[1];
-				fs.release();
 				cudaMemcpy(deep_average4, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+				bilateralFilter<short>(deep_average4, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+				auto temp = deep_average4;
+				deep_average4 = depth_dev_bila;
+				depth_dev_bila = temp;
 			}
+#elif AVERAGE_DEEP_15_UPDATA
+			frameIdx %= 15;
+			cudaMemcpy(deep_average15+ frameIdx*imgs[1]->rows * imgs[1]->cols * sizeof(short), imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
 #endif
 			
-#ifdef AVERAGE_DEEP_3
+#if AVERAGE_DEEP_3
 			combineAverageDeep<short,float>(deep_average0, deep_average1, deep_average2, deep_average_out, imgs[1]->rows , imgs[1]->cols);
 #elif AVERAGE_DEEP_5
 			combineAverageDeep<short, float>(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4, deep_average_out, imgs[1]->rows, imgs[1]->cols);
@@ -264,10 +315,53 @@ namespace unre
 			combineAverageDeep(deep_average0, deep_average1, deep_average2, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #elif AVERAGE_DEEP_5_UPDATA
 			combineAverageDeep(deep_average0, deep_average1, deep_average2, deep_average3, deep_average4, deep_average_out, imgs[1]->rows, imgs[1]->cols);
+#elif AVERAGE_DEEP_15_UPDATA
+			combineAverageDeep(deep_average15, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #else
 			cudaMemcpy(depth_dev_input, imgs[1]->data, imgs[1]->rows * imgs[1]->cols * sizeof(short), cudaMemcpyHostToDevice);
+			//bilateralFilter<short>(depth_dev_input, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
 #endif // !AVERAGE_DEEP_3
 
+
+			{
+#ifdef PCL_SHOW
+				createVMap<short,double>(depth_dev_bila, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+				cv::Mat onlyVmap(imgs[1]->rows, imgs[1]->cols, CV_32FC3);
+				cudaMemcpy(onlyVmap.data, vmap, imgs[1]->rows*imgs[1]->cols * sizeof(float)*3, cudaMemcpyDeviceToHost);
+				
+				int point_cnt = 0;
+				for (int i = 0; i < imgs[1]->rows; i++)
+					for (int j = 0; j < imgs[1]->cols; j++)
+					{
+						if (!(onlyVmap.at<cv::Vec3f>(i,j)[0] == std::numeric_limits<float>::quiet_NaN()))
+						{
+							point_cnt++;
+						}
+					}
+				pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+				cloud->width = 1;
+				cloud->height = point_cnt;
+				cloud->is_dense = false;
+				cloud->points.resize(cloud->width * cloud->height);
+				point_cnt = 0;
+
+				for (int i = 0; i < imgs[1]->rows; i++)
+					for (int j = 0; j < imgs[1]->cols; j++)
+					{
+						if (!(onlyVmap.at<cv::Vec3f>(i, j)[0] == std::numeric_limits<float>::quiet_NaN()))
+						{
+							cloud->points[point_cnt].x = onlyVmap.at<cv::Vec3f>(i, j)[0];
+							cloud->points[point_cnt].y = onlyVmap.at<cv::Vec3f>(i, j)[1];
+							cloud->points[point_cnt].z = onlyVmap.at<cv::Vec3f>(i, j)[2];
+							point_cnt++;
+						}
+					}
+				cloud_viewer_.removeAllPointClouds();
+				cloud_viewer_.addPointCloud<pcl::PointXYZ>(cloud);
+				cloud_viewer_.spinOnce(10);
+				continue;
+#endif //PCL_SHOW
+			}
 			cv::Mat showAve(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
 			cudaMemcpy(showAve.data, depth_dev_input, imgs[1]->rows*imgs[1]->cols * sizeof(short), cudaMemcpyDeviceToHost);
 
@@ -282,7 +376,7 @@ namespace unre
 				depth_dev_output
 			);
 
-			
+
 
 			//cv::Mat showDevBeforeeMed(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
 			//cudaMemcpy(showDevBeforeeMed.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
@@ -296,7 +390,7 @@ namespace unre
 				depth_2, downsample_h2, downsample_w2,
 				depth_3, downsample_h3, downsample_w3);
 
-			//bilateralFilter<float>(depth_filled, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
+			
 
 
 //#define SHOW_DOWNSAMPLE
@@ -340,7 +434,7 @@ namespace unre
 			cudaMemcpy(showDevBeforeeVmap.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
 
 
-			createVMap<double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+			createVMap<float,double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
 
 //#define SHOW_VMAP
 #ifdef SHOW_VMAP
@@ -376,12 +470,29 @@ namespace unre
 #endif // SIMPLE_NMAP
 			//continue;
 #endif // SHOW_VMAP
+
+#if FITDEEP_WITHNORMAL
+			fitVmap<short, float>(vmap, nmap0, nmap1, vmap0, vmap1, imgs[0]->rows, imgs[0]->cols);
+			cv::Mat show_vmap0(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
+			cudaMemcpy(show_vmap0.data, vmap0, 3*imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::Mat show_vmap1(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
+			cudaMemcpy(show_vmap1.data, vmap1, 3*imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+#endif // FITDEEP_WITHNORMAL
+
 			computeNormalsEigen<float>(vmap, nmap, nmap_average, imgs[0]->rows, imgs[0]->cols);
-//#define SHOW_NMAP
+#if FITDEEP_WITHNORMAL
+			computeN2ormalsEigen<float>(nmap, n2map, nmap_average, imgs[0]->rows, imgs[0]->cols);
+#endif // FITDEEP_WITHNORMAL
+#define SHOW_NMAP
 #ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-			cv::imshow("showDev4", showDev4);
+#if FITDEEP_WITHNORMAL
+			cv::Mat showDev4_2(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
+			cudaMemcpy(showDev4_2.data, n2map, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
+			cv::imshow("showDev4", showDev4_2);
+#endif // FITDEEP_WITHNORMAL
+			cv::imshow("showDev4", showDev4);			
 			cv::waitKey(10);
 			continue;
 #endif // SHOW_NMAP

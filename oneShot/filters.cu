@@ -26,7 +26,13 @@ template<> struct numeric_limits<short>
 };
 
 
-
+struct BilateralParam
+{
+	enum 
+	{
+		R = 8,
+	};
+};
 
 template <typename Dtype>
 __global__ void bilateralKernel(const Dtype* src, Dtype* dst, const int rows, const int cols,
@@ -38,7 +44,7 @@ __global__ void bilateralKernel(const Dtype* src, Dtype* dst, const int rows, co
 	if (x >= cols || y >= rows)
 		return;
 
-	const int R = 4;       //static_cast<int>(sigma_space * 1.5);
+	const int R = BilateralParam::R;       //static_cast<int>(sigma_space * 1.5);
 	const int D = R * 2 + 1;
 
 	int pos_ = y*cols + x;
@@ -87,7 +93,7 @@ int bilateralFilter<float>(const float*dataIn, float*dataOut, const int rows, co
 template<>
 int bilateralFilter<short>(const short*dataIn, short*dataOut, const int rows, const int cols)
 {
-	float sigma_color = 5;     //in mm
+	float sigma_color = 25;     //in mm
 	float sigma_space = 35;     // in pixels
 	dim3 block(32, 8);
 	dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
@@ -790,7 +796,7 @@ void combineAverageDeep<short, float>(const short*avg0, const short*avg1, const 
 #endif // AVERAGE_DEEP_3
 
 
-#if AVERAGE_DEEP_3_UPDATA ||AVERAGE_DEEP_5_UPDATA
+#if AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5_UPDATA || AVERAGE_DEEP_15_UPDATA
 struct combineAverageDeepUpdataParam
 {
 	enum
@@ -922,11 +928,11 @@ combineAverage5DeepUpdataKernel
 	}
 	if (abs(out[pos] - window[tid][minDiffIdx])>combineAverageDeepUpdataParam::UPDATA_THRESHOLD)
 	{
-		out[pos] = window[tid][minDiffIdx];
+		out[pos] = window[tid][minDiffIdx]*2*0.5;
 	}
 	else
 	{
-		out[pos] = out[pos] * 0.8 + window[tid][minDiffIdx] * .2;
+		out[pos] = static_cast<int>(out[pos] * 0.5 + window[tid][minDiffIdx] * .5)*2*0.5;
 	}
 	return;
 }
@@ -937,6 +943,74 @@ combineAverageDeep<short>(const short*avg0, const short*avg1, const short*avg2, 
 	dim3 dimBlock(combineAverageDeepUpdataParam::WIDTH, combineAverageDeepUpdataParam::HEIGHT);
 	dim3 dimGrid((cols + dimBlock.x - 1) / dimBlock.x, (rows + dimBlock.y - 1) / dimBlock.y);
 	combineAverage5DeepUpdataKernel<short> << <dimGrid, dimBlock >> >(avg0, avg1, avg2, avg3, avg4, out, rows, cols);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+}
+#elif AVERAGE_DEEP_15_UPDATA
+template<typename Dtype> __global__ void
+combineAverage5DeepUpdataKernel
+(const Dtype*avg15,	float*out, const int rows, const int cols)
+{
+	__shared__ Dtype window[combineAverageDeepUpdataParam::WIDTH*combineAverageDeepUpdataParam::HEIGHT][15];
+	unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+	unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+	unsigned int tid = threadIdx.y*blockDim.y + threadIdx.x;
+	if (x >= cols && y >= rows)
+		return;
+	int pos = (cols*y + x);
+	int interval = rows*cols;
+	for (int i = 0; i < 15; i++)
+	{
+		window[tid][i] = avg15[pos+i*interval];
+	}
+	int emptyCnt = 0;
+	for (int i = 0; i < 15; i++)
+	{
+		if (window[tid][i] < 10)emptyCnt++;
+	}
+	if (emptyCnt>2)
+	{
+		out[pos] = 0;
+	}
+	for (int i = 0; i < 14; i++)
+	{
+		int minIdx = i;
+		for (int j = i + 1; j < 15; j++)
+		{
+			if (window[tid][minIdx] > window[tid][j]) minIdx = j;
+		}
+		if (minIdx != i)
+		{
+			float temp = window[tid][i];
+			window[tid][i] = window[tid][minIdx];
+			window[tid][minIdx] = temp;
+		}
+	}
+	int minDiffIdx = 0;
+	float minDiff = numeric_limits<Dtype>::max();
+	for (int i = 0; i < 14; i++)
+	{
+		if (abs(window[tid][i] - window[tid][i + 1])<minDiff)
+		{
+			minDiffIdx = i;
+		}
+	}
+	if (abs(out[pos] - window[tid][minDiffIdx])>combineAverageDeepUpdataParam::UPDATA_THRESHOLD)
+	{
+		out[pos] = window[tid][minDiffIdx];
+	}
+	else
+	{
+		out[pos] = out[pos] * 0.9 + window[tid][minDiffIdx] * .1;
+	}
+	return;
+}
+template<> void
+combineAverageDeep<short, float>(const short*avg15, float*out, const int rows, const int cols)
+{
+	dim3 dimBlock(combineAverageDeepUpdataParam::WIDTH, combineAverageDeepUpdataParam::HEIGHT);
+	dim3 dimGrid((cols + dimBlock.x - 1) / dimBlock.x, (rows + dimBlock.y - 1) / dimBlock.y);
+	combineAverage5DeepUpdataKernel<short> << <dimGrid, dimBlock >> >(avg15,  out, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 }
