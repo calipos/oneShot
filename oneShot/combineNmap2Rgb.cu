@@ -16,35 +16,13 @@ void combineNmap2RgbKernel1(
 	float n_g = -0.58*nmap[3 * pos_ + 2];
 	float n_b = -0.58*nmap[3 * pos_ + 2];
 	float test_in = max(0.,n_r + n_g + n_b);
-
-	n_r = -0.33*nmap[3 * pos_];
-	n_g = -0.566*nmap[3 * pos_ + 1];
-	n_b = -0.707*nmap[3 * pos_ + 2];
-	float test_in2 = max(0., n_r + n_g + n_b);
-	n_r = -0.33*nmap[3 * pos_ + 2];
-	n_g = -0.566*nmap[3 * pos_ + 1];
-	n_b = -0.707*nmap[3 * pos_];
-	float test_in3 = max(0., n_r + n_g + n_b);
-	n_r = -0.33*nmap[3 * pos_ + 1];
-	n_g = -0.566*nmap[3 * pos_];
-	n_b = -0.707*nmap[3 * pos_+2];
-	float test_in4 = max(0., n_r + n_g + n_b);
-	//int newR = rgb[3 * pos_ + 0] * test_in;
-	//int newG = rgb[3 * pos_ + 1] * test_in;
-	//int newB = rgb[3 * pos_ + 2] * test_in;
-	//rgbOut[3 * pos_] = max(0, min(255, newR));
-	//rgbOut[3 * pos_ + 1] = max(0, min(255, newG));
-	//rgbOut[3 * pos_ + 2] = max(0, min(255, newB));
-
-	//int newR = 60* (test_in+test_in2+test_in3+ test_in4);
+	
+	int newR = rgb[3 * pos_+2] * (test_in);
+	int newG = rgb[3 * pos_ + 1] * (test_in);;
+	int newB = rgb[3 * pos_ ] * (test_in);
+	//int newR = 120 * (test_in);
 	//int newG = newR;
-	//int newB = 80 * (test_in + test_in2 + test_in3 + test_in4);
-
-	int newR = 120* (test_in);
-	int newG = newR;
-	int newB = 150 * (test_in );
-
-
+	//int newB = 150 * (test_in);
 	rgbOut[3 * pos_] = max(0, min(255, newB));
 	rgbOut[3 * pos_+1] = max(0, min(255, newG));
 	rgbOut[3 * pos_+2] = max(0, min(255, newR));

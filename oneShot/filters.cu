@@ -803,7 +803,7 @@ struct combineAverageDeepUpdataParam
 	{
 		HEIGHT = 8,
 		WIDTH = 8,
-		UPDATA_THRESHOLD = 10,
+		UPDATA_THRESHOLD = 20,
 	};
 };
 #endif

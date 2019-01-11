@@ -27,6 +27,19 @@ float* creatGpuData<float>(const int elemCnt, bool fore_zeros)
 	return (float*)gpudata;
 }
 template<>
+int* creatGpuData<int>(const int elemCnt, bool fore_zeros)
+{
+	void*gpudata = NULL;
+	cudaMalloc((void**)&gpudata, elemCnt * sizeof(int));
+	if (fore_zeros)
+	{
+		cudaMemset(gpudata, 0, elemCnt * sizeof(int));
+	}
+	cudaSafeCall(cudaGetLastError());
+	return (int*)gpudata;
+}
+
+template<>
 short* creatGpuData<short>(const int elemCnt, bool fore_zeros)
 {
 	void*gpudata = NULL;

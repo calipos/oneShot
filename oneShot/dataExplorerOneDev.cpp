@@ -4,7 +4,6 @@
 #include"logg.h"
 #include"iofile.h"
 #include"dataExplorer.h"
-
 #include"unreGpu.h"
 
 #ifdef PCL_SHOW
@@ -12,7 +11,179 @@
 #endif // PCL_SHOW
 
 
+bool IsNaN(float& dat)
+{
+	int & ref = *(int *)&dat;
+	return (ref & 0x7F800000) == 0x7F800000 && (ref & 0x7FFFFF) != 0;
+}
 
+std::vector<std::tuple<float*, unsigned char*, float*>> frames__;
+int writeAtxt(float *vmap, unsigned char *rgb, float *nmap, int rows, int cols, int frameIdx)
+{
+	std::vector<long long> indexs(rows*cols,-1);
+	std::vector<cv::Point3f> v;
+	std::vector<cv::Point3i> vcolor;
+	std::vector<cv::Point3f> n;
+	std::vector<long long> triSet;
+	v.reserve(rows*cols);
+	n.reserve(rows*cols);
+	triSet.reserve(rows*cols);
+
+	for (int i = 1; i <rows - 1; i++)
+	{
+		for (int j = 1; j < cols-1; j++)
+		{
+			int thisPos = i*cols + j;
+			if (IsNaN(vmap[3* thisPos]) || (nmap[3 * thisPos] == 0 && nmap[3 * thisPos+1] == 0 && nmap[3 * thisPos+2] == 0 ))
+			{
+				continue;
+			}
+			v.push_back(cv::Point3f(vmap[3 * thisPos], -vmap[3 * thisPos+1], vmap[3 * thisPos+2]-0.5));			
+			vcolor.push_back(cv::Point3i(rgb[3 * thisPos+2], rgb[3 * thisPos + 1], rgb[3 * thisPos]));
+			n.push_back(cv::Point3f(nmap[3 * thisPos], nmap[3 * thisPos + 1], nmap[3 * thisPos + 2]));
+			indexs[thisPos] = v.size() - 1;
+		}
+	}
+	for (int i = 1; i < rows - 1; i++)
+	{
+		for (int j = 1; j < cols - 1; j++)
+		{
+			int thisPos0 = i*cols + j;
+			int thisPos1 = i*cols + j+1;
+			int thisPos2 = i*cols + j + cols;
+			int thisPos3 = i*cols + j + cols + 1;
+			if (indexs[thisPos0]>0 && indexs[thisPos1]>0 && indexs[thisPos2]>0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos2]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos3]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+			else if (indexs[thisPos0]>0 && indexs[thisPos1]>0 && indexs[thisPos2]>0 && indexs[thisPos3]<0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+			else if (indexs[thisPos0]>0 && indexs[thisPos1]>0 && indexs[thisPos2]<0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos3]);
+			}
+			else if (indexs[thisPos0]>0 && indexs[thisPos1]<0 && indexs[thisPos2]>0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos3]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+			else if (indexs[thisPos0]<0 && indexs[thisPos1]>0 && indexs[thisPos2]>0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos3]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+		}
+	}
+	std::fstream fout(std::to_string(frameIdx)+".txt",std::ios::out);
+	for (int i = 0; i < v.size(); i++)
+	{
+		fout << i << " " << v[i].x << " " << v[i].y << " " << v[i].z << " " << vcolor[i].x << " " << vcolor[i].y << " " << vcolor[i].z << " " << n[i].x << " " << n[i].y << " " << n[i].z<< std::endl;
+	}
+	for (int i = 0; i < triSet.size()/3; i++)
+	{
+		fout << "t " << triSet[3 * i] << " " << triSet[3 * i+1] << " " << triSet[3 * i+2] << std::endl;
+	}
+	fout.close();
+	return 0;
+}
+int writeAtxt2(float *vmap, unsigned char *rgb, float *nmap, int rows, int cols, int frameIdx)
+{
+	std::vector<long long> indexs(rows*cols, -1);
+	std::vector<cv::Point3f> v;
+	std::vector<cv::Point3i> vcolor;
+	std::vector<cv::Point3f> n;
+	std::vector<long long> triSet;
+	v.reserve(rows*cols);
+	n.reserve(rows*cols);
+	triSet.reserve(rows*cols);
+
+	for (int i = 1; i <rows - 1; i++)
+	{
+		for (int j = 1; j < cols - 1; j++)
+		{
+			if (i%3!=0 || j % 3 != 0)
+			{
+				continue;
+			}
+			int thisPos = i*cols + j;
+			if (IsNaN(vmap[3 * thisPos]) || (nmap[3 * thisPos] == 0 && nmap[3 * thisPos + 1] == 0 && nmap[3 * thisPos + 2] == 0))
+			{
+				continue;
+			}
+			v.push_back(cv::Point3f(vmap[3 * thisPos], -vmap[3 * thisPos + 1], vmap[3 * thisPos + 2] - 0.5));
+			vcolor.push_back(cv::Point3i(rgb[3 * thisPos + 2], rgb[3 * thisPos + 1], rgb[3 * thisPos]));
+			n.push_back(cv::Point3f(nmap[3 * thisPos], nmap[3 * thisPos + 1], nmap[3 * thisPos + 2]));
+			indexs[thisPos] = v.size() - 1;
+		}
+	}
+	for (int i = 1; i < rows - 1; i++)
+	{
+		for (int j = 1; j < cols - 1; j++)
+		{
+			int thisPos0 = i*cols + j;
+			int thisPos1 = i*cols + j + 3;
+			int thisPos2 = i*cols + j + 3*cols;
+			int thisPos3 = i*cols + j + 3*cols + 3;
+			if (indexs[thisPos0]>0 && indexs[thisPos1]>0 && indexs[thisPos2]>0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos2]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos3]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+			else if (indexs[thisPos0]>0 && indexs[thisPos1]>0 && indexs[thisPos2]>0 && indexs[thisPos3]<0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+			else if (indexs[thisPos0]>0 && indexs[thisPos1]>0 && indexs[thisPos2]<0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos3]);
+			}
+			else if (indexs[thisPos0]>0 && indexs[thisPos1]<0 && indexs[thisPos2]>0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos0]);
+				triSet.push_back(indexs[thisPos3]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+			else if (indexs[thisPos0]<0 && indexs[thisPos1]>0 && indexs[thisPos2]>0 && indexs[thisPos3]>0)
+			{
+				triSet.push_back(indexs[thisPos1]);
+				triSet.push_back(indexs[thisPos3]);
+				triSet.push_back(indexs[thisPos2]);
+			}
+		}
+	}
+	std::fstream fout(std::to_string(frameIdx) + ".txt", std::ios::out);
+	for (int i = 0; i < v.size(); i++)
+	{
+		fout << i << " " << v[i].x << " " << v[i].y << " " << v[i].z << " " << vcolor[i].x << " " << vcolor[i].y << " " << vcolor[i].z << " " << n[i].x << " " << n[i].y << " " << n[i].z << std::endl;
+	}
+	for (int i = 0; i < triSet.size() / 3; i++)
+	{
+		fout << "t " << triSet[3 * i] << " " << triSet[3 * i + 1] << " " << triSet[3 * i + 2] << std::endl;
+	}
+	fout.close();
+	return 0;
+}
 
 void transProc(
 	const cv::Mat*img_, const cv::Mat*intr1_, const cv::Mat*R1_, const cv::Mat*t1_,
@@ -139,14 +310,7 @@ namespace unre
 		initAverageDeep(deep_average15, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #endif // AVERAGE_DEEP_3_UPDATA		
 
-#if FITDEEP_WITHNORMAL
-		float*vmap_in_out = NULL;
-		float*vmap0 = NULL;
-		float*vmap1 = NULL;
-		float*nmap0 = NULL;
-		float*nmap1 = NULL;
-		initFitdeep(vmap_in_out, nmap0, nmap1, vmap0, vmap1, imgs[0]->rows, imgs[0]->cols);
-#endif // FITDEEP_WITHNORMAL
+
 
 
 		double4 intr_depth;//fx,fy,cx,cy
@@ -186,6 +350,7 @@ namespace unre
 		cloud_viewer_.setCameraClipDistances(0.01, 10.01);
 #endif
 		int frameIdx = -1;
+		int frameIdx2write = 0;
 		while (1)
 		{
 			frameIdx++;
@@ -197,9 +362,7 @@ namespace unre
 
 			cv::Mat showDep(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
 			memcpy(showDep.data, imgs[1]->data, imgs[1]->rows*imgs[1]->cols*sizeof(short));
-			//cv::imshow("123", showDep);
-			//cv::waitKey(10);
-			//continue;
+
 
 			//cv::Mat colorized;
 			//transProc(imgs[0], stream2Intr[0], &std::get<0>(stream2Extr[0]), &std::get<1>(stream2Extr[0]),
@@ -364,9 +527,7 @@ namespace unre
 			}
 			cv::Mat showAve(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
 			cudaMemcpy(showAve.data, depth_dev_input, imgs[1]->rows*imgs[1]->cols * sizeof(short), cudaMemcpyDeviceToHost);
-
-
-			
+						
 			colorize_deepMat(deep_average_out,
 				imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols,
 				intr_depth,
@@ -432,11 +593,14 @@ namespace unre
 #endif // SHOW_FILLRESULT
 			cv::Mat showDevBeforeeVmap(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
 			cudaMemcpy(showDevBeforeeVmap.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
-
-
+			
 			createVMap<float,double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
 
-//#define SHOW_VMAP
+
+
+
+
+#define SHOW_VMAP
 #ifdef SHOW_VMAP
 			cv::Mat showDev3(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
@@ -471,29 +635,35 @@ namespace unre
 			//continue;
 #endif // SHOW_VMAP
 
-#if FITDEEP_WITHNORMAL
-			fitVmap<short, float>(vmap, nmap0, nmap1, vmap0, vmap1, imgs[0]->rows, imgs[0]->cols);
-			cv::Mat show_vmap0(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
-			cudaMemcpy(show_vmap0.data, vmap0, 3*imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
-			cv::Mat show_vmap1(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
-			cudaMemcpy(show_vmap1.data, vmap1, 3*imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
-#endif // FITDEEP_WITHNORMAL
 
 			computeNormalsEigen<float>(vmap, nmap, nmap_average, imgs[0]->rows, imgs[0]->cols);
-#if FITDEEP_WITHNORMAL
-			computeN2ormalsEigen<float>(nmap, n2map, nmap_average, imgs[0]->rows, imgs[0]->cols);
-#endif // FITDEEP_WITHNORMAL
+
+			
+
 #define SHOW_NMAP
 #ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-#if FITDEEP_WITHNORMAL
-			cv::Mat showDev4_2(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
-			cudaMemcpy(showDev4_2.data, n2map, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-			cv::imshow("showDev4", showDev4_2);
-#endif // FITDEEP_WITHNORMAL
-			cv::imshow("showDev4", showDev4);			
-			cv::waitKey(10);
+			//cv::imshow("showDev4", showDev4);			
+			//cv::waitKey(10);
+
+			//***
+			
+			float *this_tmp0 = new float[3 * imgs[0]->rows*imgs[0]->cols];
+			unsigned char *this_tmp1 = new unsigned char[3 * imgs[0]->rows*imgs[0]->cols];
+			float *this_tmp2 = new float[3 * imgs[0]->rows*imgs[0]->cols];
+			memcpy(this_tmp0, showDev3.data, sizeof(float) * 3 * imgs[0]->rows*imgs[0]->cols);
+			memcpy(this_tmp1, imgs[0]->data, sizeof(unsigned char) * 3 * imgs[0]->rows*imgs[0]->cols);
+			memcpy(this_tmp2, showDev4.data, sizeof(float) * 3 * imgs[0]->rows*imgs[0]->cols);
+			frames__.push_back(std::make_tuple(this_tmp0, this_tmp1, this_tmp2));
+			//writeAtxt((float*)showDev3.data, imgs[0]->data, imgs[0]->rows, imgs[0]->cols, frameIdx2write);
+			frameIdx2write++;
+			if (frameIdx2write>150)
+			{
+				break;
+			}
+			//***
+
 			continue;
 #endif // SHOW_NMAP
 			
@@ -510,6 +680,13 @@ namespace unre
 
 		}
 		
+		for (int i = 0; i < frames__.size(); i++)
+		{
+			auto d0 = std::get<0>(frames__[i]);
+			auto d1 = std::get<1>(frames__[i]);
+			auto d2 = std::get<2>(frames__[i]);
+			writeAtxt2(d0, d1, d2, imgs[0]->rows, imgs[0]->cols, i);
+		}
 		return 0;
 	}
 }

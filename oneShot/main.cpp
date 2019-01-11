@@ -23,10 +23,12 @@ extern int TEST_tsdf();
 extern int TEST_generate_testDepthMat();
 extern int TEST_oneDev();
 extern int TEST_inverse();
+extern int TEST_tennisBall();
 int main()
 {
+	TEST_tennisBall();
 	//TEST_oneDev();
-	TEST_calib();
+	//TEST_calib();
 	//TEST_generate_testDepthMat();
 	//TEST_tsdf();
 	//TEST_dataExplorer_destroy();

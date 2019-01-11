@@ -134,17 +134,7 @@ int initAverageDeep(short*&deep_average15, float*&deep_average_out, int rows, in
 }
 #endif // AVERAGE_DEEP_3_UPDATA
 
-#if FITDEEP_WITHNORMAL
-int initFitdeep(float*&vmap, float*&namp0, float*&namp1, float*&vamp0, float*&vamp1, const int rows, const int cols)
-{
-	vmap = creatGpuData<float>(3 * rows*cols, true);
-	namp0 = creatGpuData<float>(3 * rows*cols, true);
-	namp1 = creatGpuData<float>(3 * rows*cols, true);
-	vamp0 = creatGpuData<float>(3 * rows*cols, true);
-	vamp1 = creatGpuData<float>(3 * rows*cols, true);
-	return 0;
-}
-#endif
+
 
 //__device__ __forceinline__
 //void invert3x3(const float * src, float * dst)

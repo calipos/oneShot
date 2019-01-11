@@ -199,6 +199,7 @@
     <ClCompile Include="TEST_generate_testDepth.cpp" />
     <ClCompile Include="TEST_inverse.cpp" />
     <ClCompile Include="TEST_OneDev.cpp" />
+    <ClCompile Include="TEST_tennisBall.cpp" />
     <ClCompile Include="TEST_tsdf.cpp" />
     <ClCompile Include="TEST_jsonExplorer.cpp" />
     <ClCompile Include="TEST_json_write_read.cpp" />
@@ -212,6 +213,7 @@
     <CudaCompile Include="filters.cu" />
     <CudaCompile Include="nvmap.cu" />
     <CudaCompile Include="raycaster.cu" />
+    <CudaCompile Include="TableTennis.cu" />
     <CudaCompile Include="unreGpu.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

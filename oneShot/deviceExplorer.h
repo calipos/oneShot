@@ -13,7 +13,7 @@
 #ifdef USE_REALSENSE
 #include "librealsense2/rs.h"
 #include <librealsense2/rs_advanced_mode.hpp>
-#define REALSENSE_POST_FILTER
+//#define REALSENSE_POST_FILTER
 #ifdef	REALSENSE_POST_FILTER
 #include "realSense_post.h"
 #endif

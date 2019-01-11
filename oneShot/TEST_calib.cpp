@@ -248,12 +248,8 @@ int TEST_calib()
 	//test_opencv_pnp();
 	//return 0;
 
-	{
-		unre::DataExplorer de(3, true);
-		de.calibData();
-		de.deleteDevice();
-	}
-	return 0;
+
+
 	{
 		unre::DataExplorer de(3, true);
 		de.calibAllStream_noLaser();
@@ -264,7 +260,12 @@ int TEST_calib()
 		de.calibAllStream_Laser();
 		de.deleteDevice();
 	}
-
+	{
+		unre::DataExplorer de(3, true);
+		de.calibData();
+		de.deleteDevice();
+	}
+	return 0;
 
 	return 0;
 }

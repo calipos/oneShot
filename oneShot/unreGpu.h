@@ -113,6 +113,13 @@ operator+(const float3& v1, const float3& v2)
 {
 	return make_float3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
 }
+__device__ __forceinline__ void 
+operator+=(float3 &a, float3 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	a.z += b.z;
+}
 __device__ __forceinline__ float3
 operator-(const float3& v1, const float3& v2)
 {
@@ -137,6 +144,16 @@ __device__ __forceinline__ float
 dot(const float3& v1, const float3& v2)
 {
 	return v1.x * v2.x + v1.y*v2.y + v1.z*v2.z;
+}
+__device__ __forceinline__ float
+dot(const float2& v1, const float2& v2)
+{
+	return v1.x * v2.x + v1.y*v2.y;
+}
+__device__ __forceinline__ float
+dot(const float4& v1, const float4& v2)
+{
+	return v1.w * v2.w+ v1.x * v2.x + v1.y*v2.y + v1.z*v2.z;
 }
 __device__ __forceinline__ float3
 operator* (const Mat33& m, const float3& vec)
@@ -181,6 +198,7 @@ operator* (const Mat33d& m, const double3& vec)
 }
 
 
+
 template<typename T> struct numeric_limits;
 
 #define VOLUME_SIZE_X (1.024)
@@ -214,14 +232,12 @@ int initOneDevDeep(short*&depth_input, float*&depth_output, short*&depth_output_
 //#define PCL_SHOW
 #define AVERAGE_DEEP_5 0
 #define AVERAGE_DEEP_5_UPDATA 1
-#define FITDEEP_WITHNORMAL 0
+
 #define N2MAP 0
 #if AVERAGE_DEEP_3 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_3 && AVERAGE_DEEP_5_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_5_UPDATA|| AVERAGE_DEEP_3 && AVERAGE_DEEP_15_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_15_UPDATA
 #error "the models above cant be assigned at same time"
 #endif // AVERAGE_DEEP_5
-#if AVERAGE_DEEP_3 && FITDEEP_WITHNORMAL || AVERAGE_DEEP_5 && FITDEEP_WITHNORMAL || FITDEEP_WITHNORMAL && AVERAGE_DEEP_3_UPDATA || FITDEEP_WITHNORMAL && AVERAGE_DEEP_5_UPDATA|| FITDEEP_WITHNORMAL && AVERAGE_DEEP_15_UPDATA 
-#error "the models above cant be assigned at same time"
-#endif // AVERAGE_DEEP_5
+
 
 #if N2MAP
 template<typename Dtype>
@@ -253,9 +269,6 @@ int initAverageDeep(short*&deep_average0, short*&deep_average1, short*&deep_aver
 int initAverageDeep(short*&deep_average15,float*&deep_average_out,int rows, int cols);
 #endif // AVERAGE_DEEP_3_UPDATA
 
-#if FITDEEP_WITHNORMAL
-int initFitdeep(float*&vmap, float*&namp1, float*&namp2, float*&vamp1, float*&vamp2,const int rows, const int cols);
-#endif
 
 
 #ifdef DOWNSAMPLE3TIMES
@@ -340,14 +353,15 @@ template<typename Dtype1, typename Dtype2> void
 combineAverageDeep(const Dtype1*deep_average15, Dtype2*deep_average_out, const int rows, const int cols);
 #endif // AVERAGE_DEEP_3_UPDATA
 
-#if FITDEEP_WITHNORMAL
-template<typename Dtype1, typename Dtype2> void
-fitVmap(Dtype2*vmap, Dtype2*nmap0, Dtype2*nmap1, Dtype2*vmap0, Dtype2*vmap1, const int rows, const int cols);
-#endif
+
 
 void combineNmap2Rgb(
 	unsigned char*rgb, float*nmap,
 	unsigned char*rgbOut,
 	int colorRows, int colorCols);
+
+
+int initTennisBalls();
+
 
 #endif
