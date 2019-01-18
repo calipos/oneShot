@@ -1,6 +1,6 @@
 
 #include "unreGpu.h"
-#define DEPTHMAT_TRUC (5.5)
+#define DEPTHMAT_TRUC (1.5)
 
 int initOneDevDeep(
 	short*&depth_input, float*&depth_output, short*&depth_output_bila,

@@ -93,8 +93,10 @@ int bilateralFilter<float>(const float*dataIn, float*dataOut, const int rows, co
 template<>
 int bilateralFilter<short>(const short*dataIn, short*dataOut, const int rows, const int cols)
 {
-	float sigma_color = 25;     //in mm
-	float sigma_space = 35;     // in pixels
+	//float sigma_color = 25;     //in mm  //d415 parameter
+	//float sigma_space = 35;     // in pixels //d415 parameter
+	float sigma_color = 25;     //in mm  
+	float sigma_space = 35;     // in pixels 
 	dim3 block(32, 8);
 	dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 	cudaFuncSetCacheConfig(bilateralKernel<float>, cudaFuncCachePreferL1);

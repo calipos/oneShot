@@ -17,7 +17,7 @@ bool IsNaN(float& dat)
 	return (ref & 0x7F800000) == 0x7F800000 && (ref & 0x7FFFFF) != 0;
 }
 
-std::vector<std::tuple<float*, unsigned char*, float*>> frames__;
+
 int writeAtxt(float *vmap, unsigned char *rgb, float *nmap, int rows, int cols, int frameIdx)
 {
 	std::vector<long long> indexs(rows*cols,-1);
@@ -600,7 +600,7 @@ namespace unre
 
 
 
-#define SHOW_VMAP
+//#define SHOW_VMAP
 #ifdef SHOW_VMAP
 			cv::Mat showDev3(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
@@ -640,31 +640,14 @@ namespace unre
 
 			
 
-#define SHOW_NMAP
+//#define SHOW_NMAP
 #ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-			//cv::imshow("showDev4", showDev4);			
-			//cv::waitKey(10);
-
-			//***
-			
-			float *this_tmp0 = new float[3 * imgs[0]->rows*imgs[0]->cols];
-			unsigned char *this_tmp1 = new unsigned char[3 * imgs[0]->rows*imgs[0]->cols];
-			float *this_tmp2 = new float[3 * imgs[0]->rows*imgs[0]->cols];
-			memcpy(this_tmp0, showDev3.data, sizeof(float) * 3 * imgs[0]->rows*imgs[0]->cols);
-			memcpy(this_tmp1, imgs[0]->data, sizeof(unsigned char) * 3 * imgs[0]->rows*imgs[0]->cols);
-			memcpy(this_tmp2, showDev4.data, sizeof(float) * 3 * imgs[0]->rows*imgs[0]->cols);
-			frames__.push_back(std::make_tuple(this_tmp0, this_tmp1, this_tmp2));
-			//writeAtxt((float*)showDev3.data, imgs[0]->data, imgs[0]->rows, imgs[0]->cols, frameIdx2write);
-			frameIdx2write++;
-			if (frameIdx2write>150)
-			{
-				break;
-			}
-			//***
-
+			cv::imshow("showDev4", showDev4);			
+			cv::waitKey(10);
 			continue;
+
 #endif // SHOW_NMAP
 			
 
@@ -680,13 +663,7 @@ namespace unre
 
 		}
 		
-		for (int i = 0; i < frames__.size(); i++)
-		{
-			auto d0 = std::get<0>(frames__[i]);
-			auto d1 = std::get<1>(frames__[i]);
-			auto d2 = std::get<2>(frames__[i]);
-			writeAtxt2(d0, d1, d2, imgs[0]->rows, imgs[0]->cols, i);
-		}
+	
 		return 0;
 	}
 }

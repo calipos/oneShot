@@ -108,6 +108,11 @@ struct Mat33d
 };
 
 
+__device__ __forceinline__ int3
+operator+(const int3& v1, const int3& v2)
+{
+	return make_int3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+}
 __device__ __forceinline__ float3
 operator+(const float3& v1, const float3& v2)
 {
@@ -134,6 +139,27 @@ __device__ __forceinline__ float3
 operator*(const float3& v1, const float& v)
 {
 	return make_float3(v1.x * v, v1.y * v, v1.z * v);
+}
+__device__ __forceinline__ void
+operator*=(float3 &a, float3 b)
+{
+	a.x *= b.x;
+	a.y *= b.y;
+	a.z *= b.z;
+}
+__device__ __forceinline__ void
+operator*=(float3 &a, float b)
+{
+	a.x *= b;
+	a.y *= b;
+	a.z *= b;
+}
+__device__ __forceinline__ void
+operator+=(float3 &a, float b)
+{
+	a.x += b;
+	a.y += b;
+	a.z += b;
 }
 __device__ __forceinline__ float3
 operator/(const float3& v1, const float& v)
@@ -362,6 +388,15 @@ void combineNmap2Rgb(
 
 
 int initTennisBalls();
+int loopProc(const float deltaTime,float*pos_host=NULL, float*vel_host=NULL, unsigned char*rgb_host=NULL);
 
 
-#endif
+//#define GenerMeshData
+#ifdef GenerMeshData
+
+int initMeshData_dev(const int posTemplateNum, const int normTemplateNum);
+int getMeshData(float*pos_host, float*norm_host, unsigned int*triIdx_host, unsigned char*rgb_host,
+	float*pos_host_template, float*norm_host_template, unsigned int*triIdx_host_template,
+	const int posTemplateNum, const int normTemplateNum);
+#endif // GenerMeshData
+#endif //UNRE_GPU_H_

@@ -110,7 +110,9 @@ namespace unre
 #ifdef USE_REALSENSE		
 		for(auto&dev:serial_numbers_)
 		{
-			if (StringOP::splitString(dev, ",")[0].compare("realsenseD415")==0)
+			std::string this_friendName = StringOP::splitString(dev, ",")[0];
+			if (this_friendName.compare("realsenseD415") == 0
+				|| this_friendName.compare("realsenseD435") == 0)
 			{
 				existRS = true;
 				break;
@@ -343,7 +345,136 @@ namespace unre
 				dev_find_num++;
 				continue;
 			}
-			
+			if (serial_numbers.end() != std::find(serial_numbers.begin(), serial_numbers.end(), "realsenseD435," + serial_number))
+			{
+				if ("Intel RealSense D435" != std::string(dev.get_info(RS2_CAMERA_INFO_NAME)))
+				{
+					std::vector<rs2::sensor> sensors = dev.query_sensors();
+					auto color_sensor = sensors[0];
+					if (color_sensor.supports(RS2_OPTION_ENABLE_AUTO_EXPOSURE))
+						color_sensor.set_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, 1);
+				}
+				if (dev.is<rs400::advanced_mode>())
+				{
+					auto advanced_mode_dev = dev.as<rs400::advanced_mode>();
+					if (!advanced_mode_dev.is_enabled())
+					{
+						advanced_mode_dev.toggle_advanced_mode(true);
+					}
+					std::string str;
+					std::fstream _file;
+					_file.open("rs435_setting.json", std::ios::in);
+					if (!_file)
+					{
+						if (doCalib_)
+						{
+							str = "{\"param-disableraucolor\": 0,\"param-disablesadcolor\": 0,\"param-disablesadnormalize\": 0,\"param-disablesloleftcolor\": 0,\"param-disableslorightcolor\": 0,\"param-lambdaad\": 618,\"param-lambdacensus\": 15,\"param-leftrightthreshold\": 18,\"param-maxscorethreshb\": 1443,\"param-medianthreshold\": 789,\"param-minscorethresha\": 96,\"param-neighborthresh\": 12,\"param-raumine\": 2,\"param-rauminn\": 1,\"param-rauminnssum\": 6,\"param-raumins\": 3,\"param-rauminw\": 3,\"param-rauminwesum\": 7,\"param-regioncolorthresholdb\": 0.11028557924300367,\"param-regioncolorthresholdg\": 0.5729592245318832,\"param-regioncolorthresholdr\": 0.017746482533836073,\"param-regionshrinku\": 4,\"param-regionshrinkv\": 0,\"param-regionspatialthresholdu\": 7,\"param-regionspatialthresholdv\": 3,\"param-robbinsmonrodecrement\": 6,\"param-robbinsmonroincrement\": 21,\"param-rsmdiffthreshold\": 1.228300048811172,\"param-rsmrauslodiffthreshold\": 0.26648832912881404,\"param-rsmremovethreshold\": 0.4935489490398768,\"param-scanlineedgetaub\": 8,\"param-scanlineedgetaug\": 200,\"param-scanlineedgetaur\": 279,\"param-scanlinep1\": 55,\"param-scanlinep1onediscon\": 326,\"param-scanlinep1twodiscon\": 134,\"param-scanlinep2\": 235,\"param-scanlinep2onediscon\": 506,\"param-scanlinep2twodiscon\": 206,\"param-secondpeakdelta\": 222,\"param-texturecountthresh\": 0,\"param-texturedifferencethresh\": 2466,\"param-usersm\": 1,\"controls-laserstate\": \"off\"}";
+						}
+						else
+						{
+							str = "{\"param-disableraucolor\": 0,\"param-disablesadcolor\": 0,\"param-disablesadnormalize\": 0,\"param-disablesloleftcolor\": 0,\"param-disableslorightcolor\": 0,\"param-lambdaad\": 618,\"param-lambdacensus\": 15,\"param-leftrightthreshold\": 18,\"param-maxscorethreshb\": 1443,\"param-medianthreshold\": 789,\"param-minscorethresha\": 96,\"param-neighborthresh\": 12,\"param-raumine\": 2,\"param-rauminn\": 1,\"param-rauminnssum\": 6,\"param-raumins\": 3,\"param-rauminw\": 3,\"param-rauminwesum\": 7,\"param-regioncolorthresholdb\": 0.11028557924300367,\"param-regioncolorthresholdg\": 0.5729592245318832,\"param-regioncolorthresholdr\": 0.017746482533836073,\"param-regionshrinku\": 4,\"param-regionshrinkv\": 0,\"param-regionspatialthresholdu\": 7,\"param-regionspatialthresholdv\": 3,\"param-robbinsmonrodecrement\": 6,\"param-robbinsmonroincrement\": 21,\"param-rsmdiffthreshold\": 1.228300048811172,\"param-rsmrauslodiffthreshold\": 0.26648832912881404,\"param-rsmremovethreshold\": 0.4935489490398768,\"param-scanlineedgetaub\": 8,\"param-scanlineedgetaug\": 200,\"param-scanlineedgetaur\": 279,\"param-scanlinep1\": 55,\"param-scanlinep1onediscon\": 326,\"param-scanlinep1twodiscon\": 134,\"param-scanlinep2\": 235,\"param-scanlinep2onediscon\": 506,\"param-scanlinep2twodiscon\": 206,\"param-secondpeakdelta\": 222,\"param-texturecountthresh\": 0,\"param-texturedifferencethresh\": 2466,\"param-usersm\": 1,\"controls-laserstate\": \"on\"}";
+						}
+
+					}
+					else
+					{
+						_file.close();
+						std::fstream fs("rs435_setting.json");
+						std::stringstream ss;
+						ss << fs.rdbuf();
+						str = ss.str();
+					}
+					advanced_mode_dev.load_json(str);
+				}
+				else
+				{
+					CHECK(false) << "Current device doesn't support advanced-mode!\n";
+				}
+				std::vector<rs2::sensor> sensors = dev.query_sensors();
+				//auto color_sensor = sensors[1]; //1 color sensor 0 depth 
+				//if (color_sensor.supports(RS2_OPTION_EXPOSURE))
+				//{
+				//	color_sensor.set_option(RS2_OPTION_EXPOSURE, 1250);
+				//}
+				//if (color_sensor.supports(RS2_OPTION_WHITE_BALANCE))
+				//{
+				//	color_sensor.set_option(RS2_OPTION_WHITE_BALANCE, 4600);
+				//}
+				auto depth_sensor = sensors[0];
+				//if (depth_sensor.supports(RS2_OPTION_LASER_POWER))
+				//{
+				//	auto range = depth_sensor.get_option_range(RS2_OPTION_LASER_POWER);
+				//}
+				//auto depth_sensor = sensors[0];
+				if (depth_sensor.supports(RS2_OPTION_VISUAL_PRESET))
+				{
+					depth_sensor.set_option(RS2_OPTION_VISUAL_PRESET, RS2_RS400_VISUAL_PRESET_HIGH_ACCURACY); // Set max power
+				}
+				//if (depth_sensor.supports(RS2_OPTION_FRAMES_QUEUE_SIZE))
+				//{
+				//	depth_sensor.set_option(RS2_OPTION_FRAMES_QUEUE_SIZE, 0);
+				//}
+
+				std::string key_ = "realsenseD435," + serial_number;
+
+				int rgb_h = -1, rgb_w = -1;
+				int dep_h = -1, dep_w = -1;
+				int inf_h = -1, inf_w = -1;
+				std::unordered_map<std::string, int> streamTable;
+				if (sensorInfo.end() == std::find_if(sensorInfo.begin(), sensorInfo.end(), [&](auto&item)
+				{
+					if (key_.compare(std::get<0>(item)) != 0) return false;
+					auto &this_rs_dev = std::get<1>(item);
+					for (auto&map_item : this_rs_dev)
+					{
+						if (map_item.first.compare("rgb") == 0)
+						{
+							int streamIdx = std::get<0>(map_item.second);
+							streamTable["rgb"] = streamIdx;
+							rgb_h = std::get<1>(map_item.second);
+							rgb_w = std::get<2>(map_item.second);
+						}
+						if (map_item.first.compare("depth") == 0)
+						{
+							int streamIdx = std::get<0>(map_item.second);
+							streamTable["depth"] = streamIdx;
+							dep_h = std::get<1>(map_item.second);
+							dep_w = std::get<2>(map_item.second);
+						}
+						if (map_item.first.compare("infred") == 0)
+						{
+							int streamIdx = std::get<0>(map_item.second);
+							streamTable["infred"] = streamIdx;
+							inf_h = std::get<1>(map_item.second);
+							inf_w = std::get<2>(map_item.second);
+						}
+					}
+					return true;
+
+				}))
+				{
+					CHECK(false) << "SN not match the jsonExplorer Info!";
+				}
+				CHECK(dep_h > 0 && dep_w > 0 && dep_h == inf_h && dep_w == inf_w) << "RS's depth and infred must be set the same!";
+				if (rgb_h<1)
+				{
+					rgb_h = dep_h;
+					rgb_w = dep_w;
+				}
+				rs2::pipeline p;
+				rs2::config c;
+				rs2::pipeline_profile profile;
+				c.enable_device(serial_number);
+				c.enable_stream(RS2_STREAM_COLOR, rgb_w, rgb_h, RS2_FORMAT_BGR8, 30);
+				//c.enable_stream(RS2_STREAM_COLOR, 1280, 720, RS2_FORMAT_RGB8, 30);
+				c.enable_stream(RS2_STREAM_DEPTH, dep_w, dep_h, RS2_FORMAT_Z16, 30);
+				c.enable_stream(RS2_STREAM_INFRARED, 1, inf_w, inf_h, RS2_FORMAT_Y8, 30);
+				//profile = p.start(c);
+				rsMap[key_] = std::make_tuple(p, c, profile, streamTable);
+				dev_find_num++;
+				continue;
+			}
+
 		}
 	
 		if (dev_find_num!= serial_numbers.size())

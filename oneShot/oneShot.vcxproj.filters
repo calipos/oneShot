@@ -99,6 +99,9 @@
     <ClInclude Include="realSense_post.h">
       <Filter>头文件\cameraLibs</Filter>
     </ClInclude>
+    <ClInclude Include="objAssist.h">
+      <Filter>头文件\utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">
@@ -172,6 +175,12 @@
     </ClCompile>
     <ClCompile Include="TEST_tennisBall.cpp">
       <Filter>源文件\TEST</Filter>
+    </ClCompile>
+    <ClCompile Include="cudaParticleMain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="objAssist.cpp">
+      <Filter>源文件\utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

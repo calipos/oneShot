@@ -173,6 +173,7 @@
     <ClInclude Include="iofile.h" />
     <ClInclude Include="jsonExplorer.h" />
     <ClInclude Include="logg.h" />
+    <ClInclude Include="objAssist.h" />
     <ClInclude Include="opencvAssistant.h" />
     <ClInclude Include="realSense_post.h" />
     <ClInclude Include="ringBuffer.h" />
@@ -182,11 +183,13 @@
     <ClInclude Include="unreGpu.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cudaParticleMain.cpp" />
     <ClCompile Include="dataExplorerCalib.cpp" />
     <ClCompile Include="dataExplorerOneDev.cpp" />
     <ClCompile Include="deviceExplorer.cpp" />
     <ClCompile Include="JsonExplorer.cpp" />
     <ClCompile Include="logg.cpp" />
+    <ClCompile Include="objAssist.cpp" />
     <ClCompile Include="opencvAssistant.cpp" />
     <ClCompile Include="realsense-post-proc.cpp" />
     <ClCompile Include="TEST_buffer_thread.cpp" />
