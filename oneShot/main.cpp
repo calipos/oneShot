@@ -24,17 +24,11 @@ extern int TEST_generate_testDepthMat();
 extern int TEST_oneDev();
 extern int TEST_inverse();
 extern int TEST_tennisBall();
-struct color
-{
-public:
-	int r, g, b;
-	color() {}
-private:int a;
-};
+int TEST_binaryFile();
 int main()
 {
 	
-
+	//TEST_binaryFile();
 
 
 	//TEST_tennisBall();

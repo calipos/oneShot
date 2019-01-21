@@ -1,11 +1,13 @@
 #include<algorithm>
 #include<chrono>
 #include"stringOp.h"
-#include"logg.h"
-#include"iofile.h"
-#include"dataExplorer.h"
-#include"unreGpu.h"
-
+#include "logg.h"
+#include "iofile.h"
+#include "dataExplorer.h"
+#include "unreGpu.h"
+#include "unityStruct.h"
+#define OUT_BINARY
+//#define PCL_SHOW
 #ifdef PCL_SHOW
 #include "pcl/visualization/cloud_viewer.h"
 #endif // PCL_SHOW
@@ -16,6 +18,8 @@ bool IsNaN(float& dat)
 	int & ref = *(int *)&dat;
 	return (ref & 0x7F800000) == 0x7F800000 && (ref & 0x7FFFFF) != 0;
 }
+
+
 
 
 int writeAtxt(float *vmap, unsigned char *rgb, float *nmap, int rows, int cols, int frameIdx)
@@ -185,6 +189,41 @@ int writeAtxt2(float *vmap, unsigned char *rgb, float *nmap, int rows, int cols,
 	return 0;
 }
 
+int generTris(const char*triBinaryFilePath, const int&rowPoints,const int &colPoints)
+{
+	int triNum = (rowPoints - 1)*(colPoints - 1) * 2;
+	unsigned int*indexs = new unsigned int[triNum * 3];
+	int ii = 0;
+	for (int i = 0; i < rowPoints-1; i++)
+	{
+		for (int j = 0; j < colPoints - 1; j++)
+		{
+			int leftTop = i*colPoints + j;
+			int rightTop = i*colPoints + j+1;
+			int leftBottom = i*colPoints + colPoints+ j;
+			int rightBottom = i*colPoints + colPoints + j+1;
+			indexs[ii++] = leftTop;
+			indexs[ii++] = rightTop;
+			indexs[ii++] = leftBottom;
+			indexs[ii++] = rightTop;
+			indexs[ii++] = rightBottom;
+			indexs[ii++] = leftBottom;
+		}
+	}
+	if (1)//out binary file
+	{
+		std::fstream fout(triBinaryFilePath, std::ios::out | std::ios::binary);
+		fout.write((char*)indexs, sizeof(unsigned int)*triNum * 3);
+		fout.close();
+	}
+	delete[]indexs;
+	return triNum * 3;
+}
+int generRgbNormPos(float *vmap, unsigned char *rgb, float *nmap)
+{
+	return 0;
+}
+
 void transProc(
 	const cv::Mat*img_, const cv::Mat*intr1_, const cv::Mat*R1_, const cv::Mat*t1_,
 	const cv::Mat*depth_, const cv::Mat*intr2_, const cv::Mat*R2_, const cv::Mat*t2_,
@@ -251,16 +290,12 @@ void transProc(
 	depth_as_color.copyTo(*colorized_depth);
 }
 
-
-
 namespace unre
 {
 	int DataExplorer::oneDevShow()
-	{
-		
+	{		
 		std::vector<cv::Mat*> imgs;
 		initMatVect(imgs);
-
 
 		short*depth_dev_input = NULL;
 		float*depth_dev_output = NULL;
@@ -270,15 +305,22 @@ namespace unre
 		float2*depth_2 = NULL;//用来接受2阶下采样
 		float2*depth_3 = NULL;//用来接受3阶下采样
 		float*nmap = NULL;
-		float*nmap_average = NULL;
+		float*nmap_filled = NULL;
 		float*vmap = NULL;
 		unsigned char*rgbData = NULL;
 		unsigned char*newRgbData = NULL;
-		initOneDevDeep(depth_dev_input,depth_dev_output, depth_dev_bila,depth_dev_med, depth_filled, depth_2, depth_3,vmap, nmap, nmap_average,rgbData, newRgbData, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
-#if N2MAP			
-		float*n2map = NULL;
-		initN2map<float>(n2map, imgs[0]->rows, imgs[0]->cols);
-#endif // N2MAP
+		initOneDevDeep(depth_dev_input,depth_dev_output, depth_dev_bila,depth_dev_med, depth_filled, depth_2, depth_3,vmap, nmap, nmap_filled,rgbData, newRgbData, imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols);
+				
+#ifdef OUT_BINARY
+		std::vector<std::tuple<float*, float*, float*>> frameBuffer;
+		int sample_h = imgs[0]->rows / SAMPLE_H + (imgs[0]->rows % SAMPLE_H > 0 ? 1 : 0);
+		int sample_w = imgs[0]->cols / SAMPLE_W + (imgs[0]->cols % SAMPLE_W > 0 ? 1 : 0);
+		float *binaryPoints = new float[3 * sample_h*sample_w];
+		float *binaryNorms = new float[3 * sample_h*sample_w];
+		float *binaryRgba = new float[4 * sample_h*sample_w];
+		initUnityData(sample_h, sample_w);
+#endif // OUT_BINARY
+
 
 #if AVERAGE_DEEP_3		
 		short*deep_average0 = NULL, *deep_average1 = NULL, *deep_average2 = NULL;
@@ -309,36 +351,33 @@ namespace unre
 		float*deep_average_out = NULL;
 		initAverageDeep(deep_average15, deep_average_out, imgs[1]->rows, imgs[1]->cols);
 #endif // AVERAGE_DEEP_3_UPDATA		
-
-
-
-
+		
 		double4 intr_depth;//fx,fy,cx,cy
-		intr_depth.w = stream2Intr[1]->ptr<double>(0)[0];
-		intr_depth.x = stream2Intr[1]->ptr<double>(1)[1];
-		intr_depth.y = stream2Intr[1]->ptr<double>(0)[2];
-		intr_depth.z = stream2Intr[1]->ptr<double>(1)[2];
 		Mat33d R_depth(std::get<0>(stream2Extr[1]).ptr<double>(0),
 			std::get<0>(stream2Extr[1]).ptr<double>(1),
 			std::get<0>(stream2Extr[1]).ptr<double>(2));
 		double3 t_depth;
-		t_depth.x = std::get<1>(stream2Extr[1]).ptr<double>(0)[0];
-		t_depth.y = std::get<1>(stream2Extr[1]).ptr<double>(1)[0];
-		t_depth.z = std::get<1>(stream2Extr[1]).ptr<double>(2)[0];
-
 		double4 intr_color;//fx,fy,cx,cy
-		intr_color.w = stream2Intr[0]->ptr<double>(0)[0];
-		intr_color.x = stream2Intr[0]->ptr<double>(1)[1];
-		intr_color.y = stream2Intr[0]->ptr<double>(0)[2];
-		intr_color.z = stream2Intr[0]->ptr<double>(1)[2];
 		Mat33d R_color(std::get<0>(stream2Extr[0]).ptr<double>(0),
 			std::get<0>(stream2Extr[0]).ptr<double>(1),
 			std::get<0>(stream2Extr[0]).ptr<double>(2));
 		double3 t_color;
-		t_color.x = std::get<1>(stream2Extr[0]).ptr<double>(0)[0];
-		t_color.y = std::get<1>(stream2Extr[0]).ptr<double>(1)[0];
-		t_color.z = std::get<1>(stream2Extr[0]).ptr<double>(2)[0];
-
+		{
+			intr_depth.w = stream2Intr[1]->ptr<double>(0)[0];
+			intr_depth.x = stream2Intr[1]->ptr<double>(1)[1];
+			intr_depth.y = stream2Intr[1]->ptr<double>(0)[2];
+			intr_depth.z = stream2Intr[1]->ptr<double>(1)[2];
+			t_depth.x = std::get<1>(stream2Extr[1]).ptr<double>(0)[0];
+			t_depth.y = std::get<1>(stream2Extr[1]).ptr<double>(1)[0];
+			t_depth.z = std::get<1>(stream2Extr[1]).ptr<double>(2)[0];
+			intr_color.w = stream2Intr[0]->ptr<double>(0)[0];
+			intr_color.x = stream2Intr[0]->ptr<double>(1)[1];
+			intr_color.y = stream2Intr[0]->ptr<double>(0)[2];
+			intr_color.z = stream2Intr[0]->ptr<double>(1)[2];
+			t_color.x = std::get<1>(stream2Extr[0]).ptr<double>(0)[0];
+			t_color.y = std::get<1>(stream2Extr[0]).ptr<double>(1)[0];
+			t_color.z = std::get<1>(stream2Extr[0]).ptr<double>(2)[0];
+		}
 #ifdef PCL_SHOW
 		pcl::visualization::PCLVisualizer cloud_viewer_;
 		cloud_viewer_.setBackgroundColor(0, 0, 0.15);
@@ -485,18 +524,17 @@ namespace unre
 			//bilateralFilter<short>(depth_dev_input, depth_dev_bila, imgs[0]->rows, imgs[0]->cols);
 #endif // !AVERAGE_DEEP_3
 
-
 			{
 #ifdef PCL_SHOW
-				createVMap<short,double>(depth_dev_bila, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+				createVMap<float, double>(deep_average_out, vmap, intr_depth.w, intr_depth.x, intr_depth.y, intr_depth.z, imgs[1]->rows, imgs[1]->cols);
 				cv::Mat onlyVmap(imgs[1]->rows, imgs[1]->cols, CV_32FC3);
-				cudaMemcpy(onlyVmap.data, vmap, imgs[1]->rows*imgs[1]->cols * sizeof(float)*3, cudaMemcpyDeviceToHost);
-				
+				cudaMemcpy(onlyVmap.data, vmap, imgs[1]->rows*imgs[1]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
+
 				int point_cnt = 0;
 				for (int i = 0; i < imgs[1]->rows; i++)
 					for (int j = 0; j < imgs[1]->cols; j++)
 					{
-						if (!(onlyVmap.at<cv::Vec3f>(i,j)[0] == std::numeric_limits<float>::quiet_NaN()))
+						if (!(onlyVmap.at<cv::Vec3f>(i, j)[0] == std::numeric_limits<float>::quiet_NaN()))
 						{
 							point_cnt++;
 						}
@@ -525,8 +563,10 @@ namespace unre
 				continue;
 #endif //PCL_SHOW
 			}
-			cv::Mat showAve(imgs[1]->rows, imgs[1]->cols, CV_16SC1);
-			cudaMemcpy(showAve.data, depth_dev_input, imgs[1]->rows*imgs[1]->cols * sizeof(short), cudaMemcpyDeviceToHost);
+
+
+			cv::Mat showAve(imgs[1]->rows, imgs[1]->cols, CV_32FC1);
+			cudaMemcpy(showAve.data, deep_average_out, imgs[1]->rows*imgs[1]->cols * sizeof(float), cudaMemcpyDeviceToHost);
 						
 			colorize_deepMat(deep_average_out,
 				imgs[1]->rows, imgs[1]->cols, imgs[0]->rows, imgs[0]->cols,
@@ -536,11 +576,9 @@ namespace unre
 				R_color, t_color,
 				depth_dev_output
 			);
-
-
-
-			//cv::Mat showDevBeforeeMed(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
-			//cudaMemcpy(showDevBeforeeMed.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			cv::Mat showDevBeforeeMed(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
+			cudaMemcpy(showDevBeforeeMed.data, depth_dev_output, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
+			//continue;
 
 			int downsample_h2 = imgs[0]->rows / 4;
 			int downsample_w2 = imgs[0]->cols / 4;
@@ -551,7 +589,6 @@ namespace unre
 				depth_2, downsample_h2, downsample_w2,
 				depth_3, downsample_h3, downsample_w3);
 
-			
 
 
 //#define SHOW_DOWNSAMPLE
@@ -594,65 +631,45 @@ namespace unre
 			cv::Mat showDevBeforeeVmap(imgs[0]->rows, imgs[0]->cols, CV_32FC1);
 			cudaMemcpy(showDevBeforeeVmap.data, depth_filled, imgs[0]->rows*imgs[0]->cols * sizeof(float), cudaMemcpyDeviceToHost);
 			
-			createVMap<float,double>(depth_filled, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
-
-
-
-
-
+			createVMap<float,double>(depth_dev_med, vmap, intr_color.w, intr_color.x, intr_color.y, intr_color.z, imgs[0]->rows, imgs[0]->cols);
+			
 //#define SHOW_VMAP
 #ifdef SHOW_VMAP
 			cv::Mat showDev3(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev3.data, vmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-			cv::imshow("123", showDev3);
-			cv::waitKey(10);
+			//cv::imshow("123", showDev3);
+			//cv::waitKey(10);
 			//continue;
-//#define SIMPLE_NMAP
-#ifdef SIMPLE_NMAP
-			int scope_k = 13;
-			cv::Mat simple_nmap=cv::Mat::zeros(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
-			for (int i = scope_k; i < simple_nmap.rows- scope_k; i++)
-				for (int j = scope_k; j < simple_nmap.cols- scope_k; j++)
-				{
-					if (std::isnan(showDev3.at<cv::Vec3f>(i + scope_k, j + scope_k)[0])||
-						std::isnan(showDev3.at<cv::Vec3f>(i- scope_k, j- scope_k)[0]))
-					{
-						simple_nmap.at<cv::Vec3f>(i, j)[0] = 0;
-						simple_nmap.at<cv::Vec3f>(i, j)[1] = 0;
-						simple_nmap.at<cv::Vec3f>(i, j)[2] = 0;
-						continue;
-					}
-					float n_x = showDev3.at<cv::Vec3f>(i + scope_k, j + scope_k)[0] - showDev3.at<cv::Vec3f>(i - scope_k, j - scope_k)[0];
-					float n_y = showDev3.at<cv::Vec3f>(i + scope_k, j + scope_k)[1] - showDev3.at<cv::Vec3f>(i - scope_k, j - scope_k)[1];
-					float n_z = showDev3.at<cv::Vec3f>(i + scope_k, j + scope_k)[2] - showDev3.at<cv::Vec3f>(i - scope_k, j - scope_k)[2];
-					float n_mod = std::sqrtf(n_x*n_x+ n_y*n_y+ n_z*n_z);
 
-					simple_nmap.at<cv::Vec3f>(i, j)[0] = -n_x / n_mod;
-					simple_nmap.at<cv::Vec3f>(i, j)[1] = -n_y / n_mod;
-					simple_nmap.at<cv::Vec3f>(i, j)[2] = n_z / n_mod;
-				}
-#endif // SIMPLE_NMAP
 			//continue;
 #endif // SHOW_VMAP
-
-
-			computeNormalsEigen<float>(vmap, nmap, nmap_average, imgs[0]->rows, imgs[0]->cols);
-
 			
+			computeNormalsEigen<float>(vmap, nmap, nmap_filled, imgs[0]->rows, imgs[0]->cols);
+			
+			cudaMemcpy(rgbData, imgs[0]->data, imgs[0]->rows * imgs[0]->cols * 3, cudaMemcpyHostToDevice);
+#ifdef OUT_BINARY			
+			sampleUnityData(vmap, nmap, rgbData,intr_color,sample_h, sample_w, imgs[0]->cols);
+			float *binaryPoints_new = new float[3 * sample_h*sample_w];
+			float *binaryNorms_new = new float[3 * sample_h*sample_w];
+			float *binaryRgba_new = new float[4 * sample_h*sample_w];
+			device2Host(binaryPoints_new, binaryNorms_new, binaryRgba_new);
+			frameBuffer.push_back(std::make_tuple(binaryPoints_new, binaryNorms_new, binaryRgba_new));
 
-//#define SHOW_NMAP
+
+			if (frameBuffer.size()>15)
+			{
+				break;
+			}
+#endif // OUT_BINARY
+#define SHOW_NMAP
 #ifdef SHOW_NMAP
 			cv::Mat showDev4(imgs[0]->rows, imgs[0]->cols, CV_32FC3);
 			cudaMemcpy(showDev4.data, nmap, imgs[0]->rows*imgs[0]->cols * sizeof(float) * 3, cudaMemcpyDeviceToHost);
-			cv::imshow("showDev4", showDev4);			
+			cv::imshow("showDev4", showDev4);
 			cv::waitKey(10);
 			continue;
-
 #endif // SHOW_NMAP
-			
 
-
-			cudaMemcpy(rgbData, imgs[0]->data, imgs[0]->rows * imgs[0]->cols * 3, cudaMemcpyHostToDevice);
 			combineNmap2Rgb(rgbData, nmap,newRgbData, imgs[0]->rows, imgs[0]->cols);
 
 
@@ -662,8 +679,30 @@ namespace unre
 			cv::waitKey(10);
 
 		}
-		
-	
+		generTris("tris",240,427);
+		return 0;
+		for (size_t i = 0; i < frameBuffer.size(); i++)
+		{
+			char a1 = i / 26 / 26 + 97;
+			char a2 = i / 26 + 97;
+			char a3 = i % 26 + 97;
+			std::string thisFrameName = std::string("") + a1 + a2 + a3;
+			std::fstream fout1(thisFrameName + ".point", std::ios::out | std::ios::binary);
+			fout1.write((char*)std::get<0>(frameBuffer[i]), sizeof(float) * sample_h*sample_w * 3);
+			fout1.close();
+			std::fstream fout2(thisFrameName + ".norm", std::ios::out | std::ios::binary);
+			fout2.write((char*)std::get<1>(frameBuffer[i]), sizeof(float) * sample_h*sample_w * 3);
+			fout2.close();
+			std::fstream fout3(thisFrameName + ".rgba", std::ios::out | std::ios::binary);
+			fout3.write((char*)std::get<2>(frameBuffer[i]), sizeof(float) * sample_h*sample_w * 4);
+			fout3.close();
+			//cv::Mat points = cv::Mat(240, 427, CV_32FC3);
+			//cv::Mat norms = cv::Mat(240, 427, CV_32FC3);
+			//cv::Mat rgba = cv::Mat(240, 427, CV_32FC4);
+			//memcpy(points.data, std::get<0>(frameBuffer[i]), sizeof(float) * 3 * 427 * 240);
+			//memcpy(norms.data, std::get<1>(frameBuffer[i]), sizeof(float) * 3 * 427 * 240);
+			//memcpy(rgba.data, std::get<2>(frameBuffer[i]), sizeof(float) * 4 * 427 * 240);
+		}
 		return 0;
 	}
 }

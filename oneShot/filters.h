@@ -4,11 +4,20 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+__device__ __forceinline__ float3
+normalized(const float3& v)
+{
+	return v * rsqrt(dot(v, v));
+}
+
+
 #define BLOCK_WIDTH_MEANBLUR		32
 #define BLOCK_HEIGHT_MEANBLUR	32
 
 const unsigned int BLOCK_W_FILTER = 8;
 const unsigned int BLOCK_H_FILTER = 8;
+
+
 
 template<typename Dtype>
 __global__ void CudaMedianFilter3(Dtype * input, Dtype * output, unsigned int DATA_W, unsigned int DATA_H)
@@ -189,55 +198,34 @@ __global__ void kRadialBlur(unsigned char* img, unsigned width, unsigned height,
 }
 
 template<typename Dtype>
-__global__ void averageFilter_3c(const Dtype * input, Dtype * output, 
-	const unsigned int DATA_W, const  unsigned int DATA_H,const int radiusK)
+__global__ void fillNmapKernel(const Dtype * vmap, Dtype * nmap,
+	const unsigned int DATA_W, const  unsigned int DATA_H)
 {
-	//float window_0[25];
-	//float window_1[25];
-	//float window_2[25];
-	float sum0 = 0.;
-	float sum1 = 0.;
-	float sum2 = 0.;
-
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
-
-	if (x >= DATA_W && y >= DATA_H)
-		return;
-	int pos = 3*(DATA_W*y + x);
-	int availableCnt = 1;
-	for (int i = y - radiusK; i < y + radiusK; i++)
+	if (x >= DATA_W-1 || y >= DATA_H-1 || x==0 || y==0)
+		return;		
+	int thisPos = 3 * (DATA_W*y + x);
+	if (nmap[thisPos] ==0 &&nmap[thisPos + 1] == 0 &&nmap[thisPos + 2] == 0)
 	{
-		for (int j = x - radiusK; j < x + radiusK; j++)
+		int u0 = x-1;
+		int v0 = y-1;
+		int u1 = x+1;
+		int v1 = y+1;
+		if (isnan(vmap[3 * (DATA_W*v0 + u0)]) || isnan(vmap[3 * (DATA_W*v1 + u1)]))
+			return;
+		float3 diff;
+		diff.x = vmap[3 * (DATA_W*v0 + u0)] - vmap[3 * (DATA_W*v1 + u1)];
+		diff.y = vmap[3 * (DATA_W*v0 + u0) + 1] - vmap[3 * (DATA_W*v1 + u1) + 1];
+		diff.z = vmap[3 * (DATA_W*v0 + u0) + 2] - vmap[3 * (DATA_W*v1 + u1) + 2];
+		float3 n = normalized(diff);
+		if (n.z>0)
 		{
-			int thisPos = 3 * (DATA_W*i + j);
-			if (i<0 || j<0 || j >= DATA_W || i >= DATA_H)
-			{
-				continue;
-			}
-			if (input[thisPos] == 0&& input[thisPos+1] == 0&& input[thisPos+2] == 0)
-			{
-				continue;
-			}
-			sum0 += input[thisPos];
-			sum1 += input[thisPos + 1];
-			sum2 += input[thisPos + 2];
-			availableCnt++;
+			n *= -1.;
 		}
-	}
-
-
-	if (availableCnt == 0)
-	{
-		output[pos] = numeric_limits<Dtype>::quiet_NaN();
-		output[pos + 1] = numeric_limits<Dtype>::quiet_NaN();
-		output[pos + 2] = numeric_limits<Dtype>::quiet_NaN();
-	}
-	else
-	{
-		output[pos] = sum0/ availableCnt;
-		output[pos + 1] = sum1 / availableCnt;
-		output[pos + 2] = sum2 / availableCnt;
+		nmap[thisPos] = n.x;
+		nmap[thisPos + 1] = n.y;
+		nmap[thisPos + 2] = n.z;
 	}
 };
 

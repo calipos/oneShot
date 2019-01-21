@@ -43,7 +43,7 @@ struct CollisionParam
 
 #define BALL_RADIUS  (0.02)
 #define BALL_DIAMETER  (0.04)//2* BALL_RADIUS;
-#define BALL_LAYERS (5)
+#define BALL_LAYERS (10)
 	static const int OBJECT_TRUCT_Z = (AVAILABLESPACE_Z_START + BALL_LAYERS*BALL_DIAMETER);
 #define BALL_MAX_INIT_VEL  (0.1)
 
@@ -106,7 +106,7 @@ struct RandSoruce
 	}
 
 };
-RandSoruce* randTable;
+RandSoruce* randTable=NULL;
 
 struct tennisStat
 {
@@ -137,7 +137,7 @@ struct tennisStat
 		cudaSafeCall(cudaDeviceSynchronize());
 	}
 };
-tennisStat* tennis;
+tennisStat* tennis = NULL;
 
 template<>
 unsigned int* creatGpuData<unsigned int>(const int elemCnt, bool fore_zeros)
@@ -255,7 +255,7 @@ __global__ void initBall(float3*pos,
 						const int ballNum,
 						const float x_strat, const float y_strat,
 						const int rows, const int cols,
-						float*randFloat)
+						float*randFloat, int*randInt)
 {
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
 	if (index >= ballNum)
@@ -267,8 +267,6 @@ __global__ void initBall(float3*pos,
 	pos[index].x = x_strat + posXY % CollisionParam<float>::BALL_NUMBER_IN_ROW*BALL_DIAMETER;
 	pos[index].y = y_strat + posXY / CollisionParam<float>::BALL_NUMBER_IN_ROW*BALL_DIAMETER;
 	
-	rgb[index] = make_uchar3(0, 255, 0);
-	//return;
 	int thisBallRandIdx0 = ( index) % RandSoruce::RandSoruceCnt;
 	int thisBallRandIdx1 = ( index+1) % RandSoruce::RandSoruceCnt;
 	int thisBallRandIdx2 = ( index+2) % RandSoruce::RandSoruceCnt;
@@ -277,24 +275,48 @@ __global__ void initBall(float3*pos,
 	float &randF2 = randFloat[thisBallRandIdx2];//z vel	
 	randF2 = randF2 > 0 ? randF2 : -randF2;
 	vel[index] = make_float3(randF0, randF1, randF2)*BALL_MAX_INIT_VEL;
+
+	//unsigned char randI0 = (randInt[thisBallRandIdx0] % 5+5)*27;//
+	//unsigned char randI1 = (randInt[thisBallRandIdx1] % 5+5)* 27;//
+	//unsigned char randI2 = (randInt[thisBallRandIdx2] % 5+5)* 27;//
+	//rgb[index] = make_uchar3(randI0, randI1, randI2);
+	rgb[index] = make_uchar3(0, 255,0 );
 }
 
 int initTennisBalls()
 {
 	int ballNum = CollisionParam<float>::BALL_NUMBER;
-	randTable = new	RandSoruce();
-	tennis = new	tennisStat();
-	gridParticleHash = creatGpuData<unsigned int>(ballNum);
-	gridParticleIndex = creatGpuData<unsigned int>(ballNum);
-	cellStart = creatGpuData<unsigned int>(CollisionParam<float>::gridNum);
-	cellEnd = creatGpuData<unsigned int>(CollisionParam<float>::gridNum);
+	if (randTable==NULL)
+	{
+		randTable = new	RandSoruce();
+	}
+	if (tennis==NULL)
+	{
+		tennis = new	tennisStat();
+	}
+	if (gridParticleHash==NULL)
+	{
+		gridParticleHash = creatGpuData<unsigned int>(ballNum);
+	}
+	if (gridParticleIndex==NULL)
+	{
+		gridParticleIndex = creatGpuData<unsigned int>(ballNum);
+	}
+	if (cellStart == NULL)
+	{
+		cellStart = creatGpuData<unsigned int>(CollisionParam<float>::gridNum);
+	}
+	if (cellEnd == NULL)
+	{
+		cellEnd = creatGpuData<unsigned int>(CollisionParam<float>::gridNum);
+	}	
 	dim3 blockSize(256);
 	dim3 gridSize((ballNum + blockSize.x - 1) / blockSize.x);
 	initBall << <gridSize, blockSize >> >(tennis->pos, tennis->vel, tennis->rgb, 
 		ballNum,
 		CollisionParam<float>::BALL_POS_X_START, CollisionParam<float>::BALL_POS_Y_START,
 		CollisionParam<float>::BALL_NUMBER_IN_COL, CollisionParam<float>::BALL_NUMBER_IN_ROW,
-		randTable->randFloat_dev);
+		randTable->randFloat_dev, randTable->randInt_dev);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	return ballNum;
@@ -661,6 +683,8 @@ int getMeshData(float*pos_host, float*norm_host, unsigned int*triIdx_host,unsign
 	dim3 gridSize((CollisionParam<float>::BALL_NUMBER + blockSize.x - 1) / blockSize.x);
 	getMeshPosDataKernel << <gridSize, blockSize >> > (posTemplateNum, CollisionParam<float>::BALL_NUMBER,
 		pos_dev,tennis->pos, pos_dev_template);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 	getMeshNormTriRGBDataKernel << <gridSize, blockSize >> > (normTemplateNum, CollisionParam<float>::BALL_NUMBER,
 		norm_dev, norm_dev_template,
 		triIdx_dev, triIdx_dev_template,

@@ -7,11 +7,6 @@ __device__ __host__ __forceinline__ void swap(T& a, T& b)
 	T c(a); a = b; b = c;
 }
 
-__device__ __forceinline__ float3
-normalized(const float3& v)
-{
-	return v * rsqrt(dot(v, v));
-}
 
 
 template<> struct numeric_limits<float>
@@ -402,8 +397,8 @@ struct NmapConfig
 {
 	enum
 	{
-		kx = 12,
-		ky = 12,
+		kx = 15,
+		ky = 15,
 		STEP = 1,
 	};
 	static const int naiveScopeK = 10;
@@ -714,31 +709,7 @@ __global__ void	computeNmapKernelEigen(const Dtype*vmap, Dtype*nmap, int rows, i
 
 
 template<>//计算vmap，vmap必须提前申请空间，其中vmap和namp的高是depthImage高的3倍：CHW的关系
-int computeNormalsEigen<float>(const float*vmap, float*nmap, float*nmap_average, int rows, int cols)
-{
-	dim3 block(32, 8);
-	dim3 grid(1, 1, 1);
-	grid.x = divUp(cols, block.x);
-	grid.y = divUp(rows, block.y);
-	cudaMemset(nmap, 0, 3* rows* cols * sizeof(float));
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
-	//computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
-	//computeNmapNaiveKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
-	computeNmapRestrictedKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
-
-	//averageFilter_3c<float> << <grid, block >> >(nmap, nmap_average, cols, rows, 5);
-	//cudaSafeCall(cudaGetLastError());
-	//cudaSafeCall(cudaDeviceSynchronize());
-
-	return 0;
-}
-
-
-template<>//计算vmap，vmap必须提前申请空间，其中vmap和namp的高是depthImage高的3倍：CHW的关系
-int computeN2ormalsEigen<float>(const float*vmap, float*nmap, float*nmap_average, int rows, int cols)
+int computeNormalsEigen<float>(const float*vmap, float*nmap, float*nmap_filled, int rows, int cols)
 {
 	dim3 block(32, 8);
 	dim3 grid(1, 1, 1);
@@ -747,11 +718,16 @@ int computeN2ormalsEigen<float>(const float*vmap, float*nmap, float*nmap_average
 	cudaMemset(nmap, 0, 3 * rows* cols * sizeof(float));
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
-	computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
+	//computeNmapKernelEigen<float> << <grid, block >> > (vmap, nmap, rows, cols);
 	//computeNmapNaiveKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
-	//computeNmapRestrictedKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
+	computeNmapRestrictedKernel<float> << <grid, block >> > (vmap, nmap, rows, cols);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
+
+	fillNmapKernel<float> << <grid, block >> >(vmap,nmap, cols, rows);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
+
 	return 0;
 }
 

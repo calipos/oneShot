@@ -180,6 +180,7 @@
     <ClInclude Include="sensor.h" />
     <ClInclude Include="stringOp.h" />
     <ClInclude Include="threadPool.h" />
+    <ClInclude Include="unityStruct.h" />
     <ClInclude Include="unreGpu.h" />
   </ItemGroup>
   <ItemGroup>
@@ -192,6 +193,7 @@
     <ClCompile Include="objAssist.cpp" />
     <ClCompile Include="opencvAssistant.cpp" />
     <ClCompile Include="realsense-post-proc.cpp" />
+    <ClCompile Include="TEST_binaryFile.cpp" />
     <ClCompile Include="TEST_buffer_thread.cpp" />
     <ClCompile Include="dataExplorer.cpp" />
     <ClCompile Include="iofile.cpp" />
@@ -217,6 +219,7 @@
     <CudaCompile Include="nvmap.cu" />
     <CudaCompile Include="raycaster.cu" />
     <CudaCompile Include="TableTennis.cu" />
+    <CudaCompile Include="unityStruct.cu" />
     <CudaCompile Include="unreGpu.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

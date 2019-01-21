@@ -102,6 +102,9 @@
     <ClInclude Include="objAssist.h">
       <Filter>头文件\utils</Filter>
     </ClInclude>
+    <ClInclude Include="unityStruct.h">
+      <Filter>头文件\cuda</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="iofile.cpp">
@@ -182,6 +185,9 @@
     <ClCompile Include="objAssist.cpp">
       <Filter>源文件\utils</Filter>
     </ClCompile>
+    <ClCompile Include="TEST_binaryFile.cpp">
+      <Filter>源文件\TEST</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="filters.cu">
@@ -203,6 +209,9 @@
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
     <CudaCompile Include="TableTennis.cu">
+      <Filter>源文件\cuda</Filter>
+    </CudaCompile>
+    <CudaCompile Include="unityStruct.cu">
       <Filter>源文件\cuda</Filter>
     </CudaCompile>
   </ItemGroup>

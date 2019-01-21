@@ -259,16 +259,11 @@ int initOneDevDeep(short*&depth_input, float*&depth_output, short*&depth_output_
 #define AVERAGE_DEEP_5 0
 #define AVERAGE_DEEP_5_UPDATA 1
 
-#define N2MAP 0
+
 #if AVERAGE_DEEP_3 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_3_UPDATA || AVERAGE_DEEP_3 && AVERAGE_DEEP_5_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_5_UPDATA|| AVERAGE_DEEP_3 && AVERAGE_DEEP_15_UPDATA || AVERAGE_DEEP_5 && AVERAGE_DEEP_15_UPDATA
 #error "the models above cant be assigned at same time"
 #endif // AVERAGE_DEEP_5
 
-
-#if N2MAP
-template<typename Dtype>
-int initN2map(Dtype*&n2map, const int rows, const int cols);
-#endif // N2MAP
 
 
 #if AVERAGE_DEEP_3 1
@@ -316,9 +311,7 @@ int createVMap(const Dtype*dataIn, float*dataOut, const T fx, const T fy, const 
 
 
 template<typename T>
-int computeNormalsEigen(const T*vmap, T*nmap, T*nmap_average, int rows, int cols);
-template<typename T>
-int computeN2ormalsEigen(const T*vmap, T*nmap, T*nmap_average, int rows, int cols);
+int computeNormalsEigen(const T*vmap, T*nmap, T*nmap_filtered, int rows, int cols);
 
 template<typename T>
 int tranformMaps(const T* vmap_src, const T* nmap_src, const T*Rmat_, const T*tvec_, T* vmap_dst, T* nmap_dst, const int& rows, const int& cols);

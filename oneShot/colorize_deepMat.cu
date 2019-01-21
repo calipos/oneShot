@@ -6,7 +6,7 @@ int initOneDevDeep(
 	short*&depth_input, float*&depth_output, short*&depth_output_bila,
 	float*&depth_dev_med, 
 	float*&depth_filled, float2*&depth_2, float2*&depth_3,
-	float*&vmap, float*&nmap, float*&nmap_average,
+	float*&vmap, float*&nmap, float*&nmap_filled,
 	unsigned char*&rgbData, unsigned char*&newRgbData,
 	int depthRows, int depthCols, int colorRows, int colorCols)
 {
@@ -30,7 +30,7 @@ int initOneDevDeep(
 	
 	vmap = creatGpuData<float>(colorRows*colorCols * 3);
 	nmap = creatGpuData<float>(colorRows*colorCols * 3);
-	nmap_average = creatGpuData<float>(colorRows*colorCols * 3);
+	nmap_filled = creatGpuData<float>(colorRows*colorCols * 3);
 
 	rgbData = creatGpuData<unsigned char>(colorRows*colorCols * 3);
 	newRgbData = creatGpuData<unsigned char>(colorRows*colorCols * 3);
@@ -39,15 +39,6 @@ int initOneDevDeep(
 	return 0;
 }
 
-
-#if N2MAP
-template<>
-int initN2map<float>(float*&n2map, const int rows, const int cols)
-{
-	n2map = creatGpuData<float>(rows*cols*3);
-	return 0;
-}
-#endif // N2MAP
 
 #if AVERAGE_DEEP_3
 template<>
@@ -205,10 +196,10 @@ colorize_deepMat_kernel(const Dtype* depth_old,
 	if (x >= depthCols || y >= depthRows)
 		return;
 
-	float cmos_x = (x - deep_intr.y) / deep_intr.w;
-	float cmos_y = (y - deep_intr.z) / deep_intr.x;
-	float cmos_z = 1.;
-	float z = depth_old[y*depthCols + x] * 0.001;
+	double cmos_x = (x - deep_intr.y) / deep_intr.w;
+	double cmos_y = (y - deep_intr.z) / deep_intr.x;
+	double cmos_z = 1.;
+	double z = depth_old[y*depthCols + x] * 0.001;
 
 	if (z<0.001 || z>DEPTHMAT_TRUC)
 	{

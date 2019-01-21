@@ -441,11 +441,11 @@ __global__ void fillKernel(
 		return;
 	}
 	//******
-	else
-	{
-		fill_dev[cols1*y + x] = numeric_limits<float>::quiet_NaN();;
-		return;
-	}
+	//else
+	//{
+	//	fill_dev[cols1*y + x] = numeric_limits<float>::quiet_NaN();;
+	//	return;
+	//}
 	//******
 	int stage3_x = x / 16;
 	int stage3_y = y / 16;
@@ -472,7 +472,7 @@ __global__ void fillKernel(
 				roundCnt++;
 			}
 		}
-		if (1.0*validCnt / roundCnt > 0.7)
+		if (1.0*validCnt / roundCnt > 0.75)
 		{
 			fill_dev[cols1*y + x] = depth_dev3[cols3*stage3_y + stage3_x].x;
 			return;
@@ -606,13 +606,7 @@ void medfilter33_forOneDev(
 	float2*depth_dev2, int rows2, int cols2,
 	float2*depth_dev3, int rows3, int cols3)
 {
-	dim3 dimBlock(BLOCK_W_FILTER, BLOCK_H_FILTER);
-	dim3 dimGrid((cols1 + dimBlock.x - 1) / dimBlock.x, (rows1 + dimBlock.y - 1) / dimBlock.y);
-	medianFilter3AndDiscardNoisyKernel<float> << <dimGrid, dimBlock >> >
-		(depth_dev1, depth_dev1_midfiltered, cols1, rows1);
-	cudaSafeCall(cudaGetLastError());
-	cudaSafeCall(cudaDeviceSynchronize());
-	//********************************
+
 	int rows_lmt1 = rows1 / 4;
 	int cols_lmt1 = cols1 / 4;
 	dim3 block_downSample1(32, 24);
@@ -620,24 +614,24 @@ void medfilter33_forOneDev(
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	downSample44_2_Kernel<float, float2> << < grid_downSample1, block_downSample1 >> >(
-		depth_dev1_midfiltered, rows1, cols1,
+		depth_dev1, rows1, cols1,
 		rows_lmt1, cols_lmt1,
 		depth_dev2, rows2, cols2);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 
-	//int rows_lmt2 = rows1 / 16;
-	//int cols_lmt2 = cols1 / 16;
-	//dim3 block_downSample2(32, 24);
-	//dim3 grid_downSample2(divUp(cols_lmt2, block_downSample2.x), divUp(rows_lmt2, block_downSample2.y));
-	//cudaSafeCall(cudaGetLastError());
-	//cudaSafeCall(cudaDeviceSynchronize());	
-	//downSample44_2_Kernel<float, float2> << < grid_downSample2, block_downSample2 >> >
-	//	(depth_dev2, rows2, cols2,
-	//	rows_lmt2, cols_lmt2,
-	//	depth_dev3, rows3, cols3);
-	//cudaSafeCall(cudaGetLastError());
-	//cudaSafeCall(cudaDeviceSynchronize());
+	int rows_lmt2 = rows1 / 16;
+	int cols_lmt2 = cols1 / 16;
+	dim3 block_downSample2(32, 24);
+	dim3 grid_downSample2(divUp(cols_lmt2, block_downSample2.x), divUp(rows_lmt2, block_downSample2.y));
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());	
+	downSample44_2_Kernel<float, float2> << < grid_downSample2, block_downSample2 >> >
+		(depth_dev2, rows2, cols2,
+		rows_lmt2, cols_lmt2,
+		depth_dev3, rows3, cols3);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 
 	int rows_global = rows1;
 	int cols_global = cols1;
@@ -646,14 +640,19 @@ void medfilter33_forOneDev(
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 	fillKernel<float, float2> << <grid_global, block_global >> >(
-		depth_dev1_midfiltered, depth_dev1_filled,
+		depth_dev1, depth_dev1_filled,
 		rows1, cols1,
 		depth_dev2, rows2, cols2,
 		depth_dev3, rows3, cols3);
 	cudaSafeCall(cudaGetLastError());
 	cudaSafeCall(cudaDeviceSynchronize());
 
-
+	dim3 dimBlock(BLOCK_W_FILTER, BLOCK_H_FILTER);
+	dim3 dimGrid((cols1 + dimBlock.x - 1) / dimBlock.x, (rows1 + dimBlock.y - 1) / dimBlock.y);
+	medianFilter3AndDiscardNoisyKernel<float> << <dimGrid, dimBlock >> >
+		(depth_dev1_filled, depth_dev1_midfiltered, cols1, rows1);
+	cudaSafeCall(cudaGetLastError());
+	cudaSafeCall(cudaDeviceSynchronize());
 	//averageFilter5 << <grid_global, block_global >> >(
 	//	depth_dev1_filled,
 	//	depth_dev1,
